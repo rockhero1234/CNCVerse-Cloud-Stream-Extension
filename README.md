@@ -11,7 +11,7 @@ Cloud Stream ( To install : [View Docs](https://recloudstream.github.io/csdocs/)
 
 ### To Install Repo
 
-1) Direct Install : [Install](https://cutt.ly/qrQa38ja)
+1) Direct Install : [Install](https://cutt.ly/cncv)
 
 2) Short code : cncv
 
