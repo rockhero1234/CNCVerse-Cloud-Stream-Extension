@@ -7,13 +7,13 @@
 
 ### To Install
 
-Direct Install : 
+1) Direct Install : [Install](https://cutt.ly/qrQa38ja)
 
-[Install](https://cutt.ly/qrQa38ja)
+2) Short code : cncv
 
-Manual Install : 
+3) Manual Install (Copy and Paste in add Repo of Cloud Stream) :
 
-https://raw.githubusercontent.com/NivinCNC/CNCVerse-Cloud-Stream-Extension/refs/heads/builds/CNC.json  (Copy and Paste in add Repo of Cloud Stream)
+   https://raw.githubusercontent.com/NivinCNC/CNCVerse-Cloud-Stream-Extension/refs/heads/builds/CNC.json
 
 ### License
 [![GNU GPLv3 Image](https://www.gnu.org/graphics/gplv3-127x51.png)](http://www.gnu.org/licenses/gpl-3.0.en.html)
