@@ -5,7 +5,11 @@
   </a>
 </p>
 
-### To Install
+### Requirements
+
+Cloud Stream ( To install : [View Docs](https://recloudstream.github.io/csdocs/) )
+
+### To Install Repo
 
 1) Direct Install : [Install](https://cutt.ly/qrQa38ja)
 
@@ -13,7 +17,7 @@
 
 3) Manual Install (Copy and Paste in add Repo of Cloud Stream) :
 
-   https://raw.githubusercontent.com/NivinCNC/CNCVerse-Cloud-Stream-Extension/refs/heads/builds/CNC.json
+        https://raw.githubusercontent.com/NivinCNC/CNCVerse-Cloud-Stream-Extension/refs/heads/builds/CNC.json
 
 ### License
 [![GNU GPLv3 Image](https://www.gnu.org/graphics/gplv3-127x51.png)](http://www.gnu.org/licenses/gpl-3.0.en.html)
