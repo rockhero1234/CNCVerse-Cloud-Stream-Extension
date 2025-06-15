@@ -90,17 +90,12 @@ suspend fun bypass(mainUrl: String): String {
         return savedCookie
     }
 
-    private val headers = mapOf(
-        "User-Agent" to "Mozilla/5.0 (iPhone; CPU iPhone OS 13_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Mobile/15E148 Safari/604.1",
-        "X-Requested-With" to "XMLHttpRequest"
-    )
-
     // Fetch new cookie if expired/missing
     val newCookie = try {
         var verifyCheck: String
         var verifyResponse: NiceResponse
         do {
-            verifyResponse = app.post("${mainUrl}/tv/p.php",headers)
+            verifyResponse = app.post("${mainUrl}/tv/p.php")
             verifyCheck = verifyResponse.text
         } while (!verifyCheck.contains("\"r\":\"n\""))
         verifyResponse.cookies["t_hash_t"].orEmpty()
