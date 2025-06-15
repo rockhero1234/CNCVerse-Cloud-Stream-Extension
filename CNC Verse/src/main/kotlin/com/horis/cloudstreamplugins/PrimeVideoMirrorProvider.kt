@@ -6,6 +6,7 @@ import com.horis.cloudstreamplugins.entities.PostData
 import com.horis.cloudstreamplugins.entities.SearchData
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
+import com.lagradost.cloudstream3.network.CloudflareKiller
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
 import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
@@ -30,6 +31,7 @@ class PrimeVideoMirrorProvider : MainAPI() {
 
     override val hasMainPage = true
     private var cookie_value = ""
+    private val cfInterceptor = CloudflareKiller()
     private val headers = mapOf(
         "X-Requested-With" to "XMLHttpRequest"
     )
@@ -41,7 +43,7 @@ class PrimeVideoMirrorProvider : MainAPI() {
             "ott" to "pv",
             "hd" to "on"
         )
-        val document = app.get("$mainUrl/mobile/home", cookies = cookies).document
+        val document = app.get("$mainUrl/mobile/home", cookies = cookies, interceptor = cfInterceptor).document
         val items = document.select(".tray-container").map {
             it.toHomePageList()
         }
@@ -78,7 +80,7 @@ class PrimeVideoMirrorProvider : MainAPI() {
             "hd" to "on"
         )
         val url = "$mainUrl/mobile/pv/search.php?s=$query&t=${APIHolder.unixTime}"
-        val data = app.get(url, referer = "$mainUrl/", cookies = cookies).parsed<SearchData>()
+        val data = app.get(url, referer = "$mainUrl/", cookies = cookies, interceptor = cfInterceptor).parsed<SearchData>()
 
         return data.searchResult.map {
             newAnimeSearchResponse(it.t, Id(it.id).toJson()) {
@@ -97,7 +99,7 @@ class PrimeVideoMirrorProvider : MainAPI() {
             "hd" to "on"
         )
         val data = app.get(
-            "$mainUrl/mobile/pv/post.php?id=$id&t=${APIHolder.unixTime}", headers, referer = "$mainUrl/", cookies = cookies
+            "$mainUrl/mobile/pv/post.php?id=$id&t=${APIHolder.unixTime}", headers, referer = "$mainUrl/", cookies = cookies, interceptor = cfInterceptor
         ).parsed<PostData>()
 
         val episodes = arrayListOf<Episode>()
@@ -169,7 +171,7 @@ class PrimeVideoMirrorProvider : MainAPI() {
                 "$mainUrl/mobile/pv/episodes.php?s=$sid&series=$eid&t=${APIHolder.unixTime}&page=$pg",
                 headers,
                 referer = "$mainUrl/",
-                cookies = cookies
+                cookies = cookies, interceptor = cfInterceptor
             ).parsed<EpisodesData>()
             data.episodes?.mapTo(episodes) {
                 newEpisode(LoadData(title, it.id)) {
@@ -202,7 +204,7 @@ class PrimeVideoMirrorProvider : MainAPI() {
             "$mainUrl/mobile/pv/playlist.php?id=$id&t=$title&tm=${APIHolder.unixTime}",
             headers,
             referer = "$mainUrl/",
-            cookies = cookies
+            cookies = cookies, interceptor = cfInterceptor
         ).parsed<PlayList>()
 
         playlist.forEach { item ->
@@ -233,19 +235,21 @@ class PrimeVideoMirrorProvider : MainAPI() {
         return true
     }
 
-    @Suppress("ObjectLiteralToLambda")
+ @Suppress("ObjectLiteralToLambda")
     override fun getVideoInterceptor(extractorLink: ExtractorLink): Interceptor? {
-        return object : Interceptor {
-            override fun intercept(chain: Interceptor.Chain): Response {
-                val request = chain.request()
-                if (request.url.toString().contains(".m3u8")) {
-                    val newRequest = request.newBuilder()
-                        .header("Cookie", "hd=on")
-                        .build()
-                    return chain.proceed(newRequest)
-                }
-                return chain.proceed(request)
+        return Interceptor { chain ->
+            val request = chain.request()
+            if (request.url.toString().contains(".m3u8")) {
+                val newRequest = request.newBuilder()
+                    .header("Cookie", "hd=on")
+                    .build()
+                // Pass through cfInterceptor
+                return@Interceptor cfInterceptor.intercept(object : Interceptor.Chain by chain {
+                    override fun request() = newRequest
+                })
             }
+            // Pass through cfInterceptor for non-m3u8 as well
+            return@Interceptor cfInterceptor.intercept(chain)
         }
     }
 
