@@ -2,7 +2,6 @@ package com.horis.cloudstreamplugins
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
-import com.lagradost.cloudstream3.network.CloudflareKiller
 import com.fasterxml.jackson.core.json.JsonReadFeature
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -83,7 +82,6 @@ data class VerifyUrl(
 )
 
 suspend fun bypass(mainUrl: String): String {
-    val cfInterceptor = CloudflareKiller()
     // Check persistent storage first
     val (savedCookie, savedTimestamp) = NetflixMirrorStorage.getCookie()
 
@@ -97,7 +95,7 @@ suspend fun bypass(mainUrl: String): String {
         var verifyCheck: String
         var verifyResponse: NiceResponse
         do {
-            verifyResponse = app.post("${mainUrl}/tv/p.php", interceptor = cfInterceptor)
+            verifyResponse = app.post("${mainUrl}/tv/p.php")
             verifyCheck = verifyResponse.text
         } while (!verifyCheck.contains("\"r\":\"n\""))
         verifyResponse.cookies["t_hash_t"].orEmpty()
