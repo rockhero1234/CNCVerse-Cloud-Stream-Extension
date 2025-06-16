@@ -82,6 +82,7 @@ data class VerifyUrl(
 )
 
 suspend fun bypass(mainUrl: String): String {
+    NetflixMirrorStorage.updateCfClearanceFromCookieManager()
     // Check persistent storage first
     val (savedCookie, savedTimestamp) = NetflixMirrorStorage.getCookie()
 
@@ -89,7 +90,6 @@ suspend fun bypass(mainUrl: String): String {
     if (!savedCookie.isNullOrEmpty() && System.currentTimeMillis() - savedTimestamp < 54_000_000) {
         return savedCookie
     }
-
     // Fetch new cookie if expired/missing
     val newCookie = try {
         var verifyCheck: String
