@@ -42,6 +42,7 @@ class HotStarMirrorProvider : MainAPI() {
         CookieManager.getInstance().setCookie(mainUrl, "t_hash_t=$cookie_value")
         CookieManager.getInstance().setCookie(mainUrl, "ott=dp")
         CookieManager.getInstance().setCookie(mainUrl, "hd=on")
+        cfInterceptor.savedCookies.clear()
         val document = app.get("$mainUrl/mobile/home", interceptor = cfInterceptor).document
         val items = document.select(".tray-container, #top10").map {
             it.toHomePageList()
@@ -76,6 +77,7 @@ class HotStarMirrorProvider : MainAPI() {
         CookieManager.getInstance().setCookie(mainUrl, "t_hash_t=$cookie_value")
         CookieManager.getInstance().setCookie(mainUrl, "ott=dp")
         CookieManager.getInstance().setCookie(mainUrl, "hd=on")
+        cfInterceptor.savedCookies.clear()
         val url = "$mainUrl/mobile/hs/search.php?s=$query&t=${APIHolder.unixTime}"
         val data = app.get(url, referer = "$mainUrl/", interceptor = cfInterceptor).parsed<SearchData>()
 
@@ -93,6 +95,7 @@ class HotStarMirrorProvider : MainAPI() {
         CookieManager.getInstance().setCookie(mainUrl, "t_hash_t=$cookie_value")
         CookieManager.getInstance().setCookie(mainUrl, "ott=dp")
         CookieManager.getInstance().setCookie(mainUrl, "hd=on")
+        cfInterceptor.savedCookies.clear()
         val data = app.get(
             "$mainUrl/mobile/hs/post.php?id=$id&t=${APIHolder.unixTime}", headers, referer = "$mainUrl/", interceptor = cfInterceptor
         ).parsed<PostData>()
@@ -158,6 +161,7 @@ class HotStarMirrorProvider : MainAPI() {
         CookieManager.getInstance().setCookie(mainUrl, "t_hash_t=$cookie_value")
         CookieManager.getInstance().setCookie(mainUrl, "ott=dp")
         CookieManager.getInstance().setCookie(mainUrl, "hd=on")
+        cfInterceptor.savedCookies.clear()
         var pg = page
         while (true) {
             val data = app.get(
@@ -191,6 +195,7 @@ class HotStarMirrorProvider : MainAPI() {
         CookieManager.getInstance().setCookie(mainUrl, "t_hash_t=$cookie_value")
         CookieManager.getInstance().setCookie(mainUrl, "ott=dp")
         CookieManager.getInstance().setCookie(mainUrl, "hd=on")
+        cfInterceptor.savedCookies.clear()
         val playlist = app.get(
             "$mainUrl/mobile/hs/playlist.php?id=$id&t=$title&tm=${APIHolder.unixTime}",
             headers,
