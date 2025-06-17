@@ -82,7 +82,6 @@ data class VerifyUrl(
 )
 
 suspend fun bypass(mainUrl: String): String {
-    NetflixMirrorStorage.updateCfClearanceFromCookieManager()
     // Check persistent storage first
     val (savedCookie, savedTimestamp) = NetflixMirrorStorage.getCookie()
 

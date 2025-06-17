@@ -21,27 +21,7 @@ object NetflixMirrorStorage {
         editor.apply()
     }
 
-    fun updateCfClearanceFromCookieManager() {
-        val editor = prefs.edit()
-        val cookieString = CookieManager.getInstance().getCookie(mainUrl)
-        val cfClearance = cookieString?.split(";")
-            ?.map { it.trim() }
-            ?.firstOrNull { it.startsWith("cf_clearance=") }
-            ?.substringAfter("=")
-        if (cfClearance != null) {
-            editor.putString("cf_clearance", cfClearance)
-        }
-        editor.apply() 
-    }
-
     fun getCookie(): Pair<String?, Long> {
-        var cf_clearance = prefs.getString("cf_clearance", null)
-        if (cf_clearance != null) {
-          CookieManager.getInstance().setCookie(
-                mainUrl,
-                "cf_clearance=$cf_clearance"
-            )
-        }
         return Pair(
             prefs.getString("nf_cookie", null),
             prefs.getLong("nf_cookie_timestamp", 0L)
