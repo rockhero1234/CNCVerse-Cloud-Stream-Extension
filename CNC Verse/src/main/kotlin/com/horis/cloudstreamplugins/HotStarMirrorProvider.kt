@@ -39,6 +39,7 @@ class HotStarMirrorProvider : MainAPI() {
         val cookies = mapOf(
             "t_hash_t" to cookie_value,
             "ott" to "dp",
+            "studio" to "disney",
             "hd" to "on"
         )
         val document = app.get(
@@ -57,7 +58,7 @@ class HotStarMirrorProvider : MainAPI() {
         val items = select("article, .top10-post").mapNotNull {
             it.toSearchResult()
         }
-        return HomePageList(name, items, isHorizontalImages = true)
+        return HomePageList(name, items)
     }
 
     private fun Element.toSearchResult(): SearchResponse? {
