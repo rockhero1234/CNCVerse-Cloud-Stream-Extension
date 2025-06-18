@@ -2,12 +2,10 @@ package com.horis.cloudstreamplugins
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.webkit.CookieManager
 
 object NetflixMirrorStorage {
     private lateinit var context: Context
     private lateinit var prefs: SharedPreferences
-    private var mainUrl: String = "https://netfree2.cc"
 
     fun init(context: Context) {
         this.context = context.applicationContext

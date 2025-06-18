@@ -6,7 +6,6 @@ import com.horis.cloudstreamplugins.entities.PostData
 import com.horis.cloudstreamplugins.entities.SearchData
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
-import com.lagradost.cloudstream3.network.CloudflareKiller
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
 import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
@@ -18,7 +17,6 @@ import okhttp3.Interceptor
 import okhttp3.Response
 import org.jsoup.nodes.Element
 import com.lagradost.cloudstream3.APIHolder.unixTime
-import android.webkit.CookieManager
 
 class HotStarMirrorProvider : MainAPI() {
     override val supportedTypes = setOf(
@@ -32,18 +30,22 @@ class HotStarMirrorProvider : MainAPI() {
 
     override val hasMainPage = true
     private var cookie_value = ""
-    private val cfInterceptor = CloudflareKiller()
     private val headers = mapOf(
         "X-Requested-With" to "XMLHttpRequest"
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse? {
         cookie_value = if(cookie_value.isEmpty()) bypass(mainUrl) else cookie_value
-        CookieManager.getInstance().setCookie(mainUrl, "t_hash_t=$cookie_value")
-        CookieManager.getInstance().setCookie(mainUrl, "ott=dp")
-        CookieManager.getInstance().setCookie(mainUrl, "hd=on")
-        cfInterceptor.savedCookies.clear()
-        val document = app.get("$mainUrl/mobile/home", interceptor = cfInterceptor).document
+        val cookies = mapOf(
+            "t_hash_t" to cookie_value,
+            "ott" to "dp",
+            "hd" to "on"
+        )
+        val document = app.get(
+            "$mainUrl/mobile/home",
+            cookies = cookies,
+            referer = "$mainUrl/tv/home",
+        ).document
         val items = document.select(".tray-container, #top10").map {
             it.toHomePageList()
         }
@@ -55,49 +57,51 @@ class HotStarMirrorProvider : MainAPI() {
         val items = select("article, .top10-post").mapNotNull {
             it.toSearchResult()
         }
-        return HomePageList(
-            name,
-            items,
-            isHorizontalImages = true
-        )
+        return HomePageList(name, items, isHorizontalImages = true)
     }
 
     private fun Element.toSearchResult(): SearchResponse? {
         val id = selectFirst("a")?.attr("data-post") ?: attr("data-post") ?: return null
-        val posterUrl = fixUrlNull(selectFirst(".card-img-container img, img.top10-img-1")?.attr("data-src"))
+        val posterUrl =
+            fixUrlNull(selectFirst(".card-img-container img, .top10-img img")?.attr("data-src"))
 
         return newAnimeSearchResponse("", Id(id).toJson()) {
             this.posterUrl = posterUrl
-            posterHeaders = mapOf("Referer" to "$mainUrl/")
+            posterHeaders = mapOf("Referer" to "$mainUrl/tv/home")
         }
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
         cookie_value = if(cookie_value.isEmpty()) bypass(mainUrl) else cookie_value
-        CookieManager.getInstance().setCookie(mainUrl, "t_hash_t=$cookie_value")
-        CookieManager.getInstance().setCookie(mainUrl, "ott=dp")
-        CookieManager.getInstance().setCookie(mainUrl, "hd=on")
-        cfInterceptor.savedCookies.clear()
+        val cookies = mapOf(
+            "t_hash_t" to cookie_value,
+            "hd" to "on",
+            "ott" to "dp"
+        )
         val url = "$mainUrl/mobile/hs/search.php?s=$query&t=${APIHolder.unixTime}"
-        val data = app.get(url, referer = "$mainUrl/", interceptor = cfInterceptor).parsed<SearchData>()
+        val data = app.get(url, referer = "$mainUrl/tv/home", cookies = cookies).parsed<SearchData>()
 
         return data.searchResult.map {
             newAnimeSearchResponse(it.t, Id(it.id).toJson()) {
                 posterUrl = "https://imgcdn.media/hs/v/166/${it.id}.jpg"
-                posterHeaders = mapOf("Referer" to "$mainUrl/")
+                posterHeaders = mapOf("Referer" to "$mainUrl/tv/home")
             }
         }
     }
 
     override suspend fun load(url: String): LoadResponse? {
-        val id = parseJson<Id>(url).id
         cookie_value = if(cookie_value.isEmpty()) bypass(mainUrl) else cookie_value
-        CookieManager.getInstance().setCookie(mainUrl, "t_hash_t=$cookie_value")
-        CookieManager.getInstance().setCookie(mainUrl, "ott=dp")
-        CookieManager.getInstance().setCookie(mainUrl, "hd=on")
-        cfInterceptor.savedCookies.clear()
+        val id = parseJson<Id>(url).id
+        val cookies = mapOf(
+            "t_hash_t" to cookie_value,
+            "hd" to "on",
+            "ott" to "dp"
+        )
         val data = app.get(
-            "$mainUrl/mobile/hs/post.php?id=$id&t=${APIHolder.unixTime}", headers, referer = "$mainUrl/", interceptor = cfInterceptor
+            "$mainUrl/mobile/hs/post.php?id=$id&t=${APIHolder.unixTime}",
+            headers,
+            referer = "$mainUrl/tv/home",
+            cookies = cookies
         ).parsed<PostData>()
 
         val episodes = arrayListOf<Episode>()
@@ -123,9 +127,9 @@ class HotStarMirrorProvider : MainAPI() {
         } else {
             data.episodes.filterNotNull().mapTo(episodes) {
                 newEpisode(LoadData(title, it.id)) {
-                    name = it.t
-                    episode = it.ep.replace("E", "").toIntOrNull()
-                    season = it.s.replace("S", "").toIntOrNull()
+                    this.name = it.t
+                    this.episode = it.ep.replace("E", "").toIntOrNull()
+                    this.season = it.s.replace("S", "").toIntOrNull()
                     this.posterUrl = "https://imgcdn.media/hsepimg/${it.id}.jpg"
                     this.runTime = it.time.replace("m", "").toIntOrNull()
                 }
@@ -144,7 +148,8 @@ class HotStarMirrorProvider : MainAPI() {
 
         return newTvSeriesLoadResponse(title, url, type, episodes) {
             posterUrl = "https://imgcdn.media/hs/v/166/$id.jpg"
-            posterHeaders = mapOf("Referer" to "$mainUrl/")
+            backgroundPosterUrl ="https://imgcdn.media/hs/h/166/$id.jpg"
+            posterHeaders = mapOf("Referer" to "$mainUrl/tv/home")
             plot = data.desc
             year = data.year.toIntOrNull()
             tags = genre
@@ -158,17 +163,18 @@ class HotStarMirrorProvider : MainAPI() {
         title: String, eid: String, sid: String, page: Int
     ): List<Episode> {
         val episodes = arrayListOf<Episode>()
-        CookieManager.getInstance().setCookie(mainUrl, "t_hash_t=$cookie_value")
-        CookieManager.getInstance().setCookie(mainUrl, "ott=dp")
-        CookieManager.getInstance().setCookie(mainUrl, "hd=on")
-        cfInterceptor.savedCookies.clear()
+        val cookies = mapOf(
+            "t_hash_t" to cookie_value,
+            "hd" to "on",
+            "ott" to "dp"
+        )
         var pg = page
         while (true) {
             val data = app.get(
                 "$mainUrl/mobile/hs/episodes.php?s=$sid&series=$eid&t=${APIHolder.unixTime}&page=$pg",
                 headers,
-                referer = "$mainUrl/",
-                interceptor = cfInterceptor
+                referer = "$mainUrl/tv/home",
+                cookies = cookies
             ).parsed<EpisodesData>()
             data.episodes?.mapTo(episodes) {
                 newEpisode(LoadData(title, it.id)) {
@@ -192,15 +198,16 @@ class HotStarMirrorProvider : MainAPI() {
         callback: (ExtractorLink) -> Unit
     ): Boolean {
         val (title, id) = parseJson<LoadData>(data)
-        CookieManager.getInstance().setCookie(mainUrl, "t_hash_t=$cookie_value")
-        CookieManager.getInstance().setCookie(mainUrl, "ott=dp")
-        CookieManager.getInstance().setCookie(mainUrl, "hd=on")
-        cfInterceptor.savedCookies.clear()
+        val cookies = mapOf(
+            "t_hash_t" to cookie_value,
+            "hd" to "on",
+            "ott" to "dp"
+        )
         val playlist = app.get(
             "$mainUrl/mobile/hs/playlist.php?id=$id&t=$title&tm=${APIHolder.unixTime}",
             headers,
-            referer = "$mainUrl/",
-            interceptor = cfInterceptor
+            referer = "$mainUrl/tv/home",
+            cookies = cookies
         ).parsed<PlayList>()
 
         playlist.forEach { item ->
@@ -212,7 +219,7 @@ class HotStarMirrorProvider : MainAPI() {
                         fixUrl(it.file),
                         type = ExtractorLinkType.M3U8
                     ) {
-                        this.referer = "$mainUrl/"
+                        this.referer = "$mainUrl/tv/home"
                         this.quality = getQualityFromName(it.file.substringAfter("q=", ""))
                     }
                 )
@@ -233,19 +240,17 @@ class HotStarMirrorProvider : MainAPI() {
 
     @Suppress("ObjectLiteralToLambda")
     override fun getVideoInterceptor(extractorLink: ExtractorLink): Interceptor? {
-        return Interceptor { chain ->
-            val request = chain.request()
-            if (request.url.toString().contains(".m3u8")) {
-                val newRequest = request.newBuilder()
-                    .header("Cookie", "hd=on")
-                    .build()
-                // Pass through cfInterceptor
-                return@Interceptor cfInterceptor.intercept(object : Interceptor.Chain by chain {
-                    override fun request() = newRequest
-                })
+        return object : Interceptor {
+            override fun intercept(chain: Interceptor.Chain): Response {
+                val request = chain.request()
+                if (request.url.toString().contains(".m3u8")) {
+                    val newRequest = request.newBuilder()
+                        .header("Cookie", "hd=on")
+                        .build()
+                    return chain.proceed(newRequest)
+                }
+                return chain.proceed(request)
             }
-            // Pass through cfInterceptor for non-m3u8 as well
-            return@Interceptor cfInterceptor.intercept(chain)
         }
     }
 
@@ -255,9 +260,5 @@ class HotStarMirrorProvider : MainAPI() {
 
     data class LoadData(
         val title: String, val id: String
-    )
-
-    data class Cookie(
-        val cookie: String
     )
 }

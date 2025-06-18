@@ -14,6 +14,7 @@ import okhttp3.FormBody
 import com.lagradost.nicehttp.NiceResponse
 import kotlinx.coroutines.delay
 import android.content.Context
+import com.lagradost.api.Log
 
 val JSONParser = object : ResponseParser {
     val mapper: ObjectMapper = jacksonObjectMapper().configure(
@@ -77,10 +78,6 @@ fun convertRuntimeToMinutes(runtime: String): Int {
     return totalMinutes
 }
 
-data class VerifyUrl(
-    val nfverifyurl: String
-)
-
 suspend fun bypass(mainUrl: String): String {
     // Check persistent storage first
     val (savedCookie, savedTimestamp) = NetflixMirrorStorage.getCookie()
@@ -89,12 +86,12 @@ suspend fun bypass(mainUrl: String): String {
     if (!savedCookie.isNullOrEmpty() && System.currentTimeMillis() - savedTimestamp < 54_000_000) {
         return savedCookie
     }
-    // Fetch new cookie if expired/missing
+
     val newCookie = try {
         var verifyCheck: String
         var verifyResponse: NiceResponse
         do {
-            verifyResponse = app.post("${mainUrl}/tv/p.php")
+            verifyResponse = app.post("$mainUrl/tv/p.php")
             verifyCheck = verifyResponse.text
         } while (!verifyCheck.contains("\"r\":\"n\""))
         verifyResponse.cookies["t_hash_t"].orEmpty()

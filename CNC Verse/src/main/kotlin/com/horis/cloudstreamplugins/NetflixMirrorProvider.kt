@@ -5,7 +5,6 @@ import com.horis.cloudstreamplugins.entities.PlayList
 import com.horis.cloudstreamplugins.entities.PostData
 import com.horis.cloudstreamplugins.entities.SearchData
 import com.lagradost.cloudstream3.*
-import com.lagradost.cloudstream3.network.CloudflareKiller
 import com.lagradost.cloudstream3.utils.*
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
 import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
@@ -18,7 +17,6 @@ import okhttp3.Interceptor
 import okhttp3.Response
 import org.jsoup.nodes.Element
 import com.lagradost.cloudstream3.APIHolder.unixTime
-import android.webkit.CookieManager
 
 class NetflixMirrorProvider : MainAPI() {
     override val supportedTypes = setOf(
@@ -32,55 +30,64 @@ class NetflixMirrorProvider : MainAPI() {
 
     override val hasMainPage = true
     private var cookie_value = ""
-    private val cfInterceptor = CloudflareKiller()
     private val headers = mapOf(
         "X-Requested-With" to "XMLHttpRequest"
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse? {
         cookie_value = if(cookie_value.isEmpty()) bypass(mainUrl) else cookie_value
-        CookieManager.getInstance().setCookie(mainUrl, "t_hash_t=$cookie_value")
-        CookieManager.getInstance().setCookie(mainUrl, "ott=nf")
-        CookieManager.getInstance().setCookie(mainUrl, "hd=on")
-        cfInterceptor.savedCookies.clear()
-        val document = app.get("$mainUrl/mobile/home", interceptor = cfInterceptor).document
-        val items = document.select(".tray-container, #top10").map {
+        val cookies = mapOf(
+            "t_hash_t" to cookie_value,
+            "ott" to "nf",
+            "hd" to "on"
+        )
+        val document = app.get(
+            "$mainUrl/tv/home",
+            cookies = cookies,
+            referer = "$mainUrl/tv/home",
+        ).document
+        val items = document.select(".lolomoRow").map {
             it.toHomePageList()
         }
         return newHomePageResponse(items, false)
     }
 
     private fun Element.toHomePageList(): HomePageList {
-        val name = select("h2, span").text()
-        val items = select("article, .top10-post").mapNotNull {
+        val name = select("h2 > span > div").text()
+        val items = select("img.lazy").mapNotNull {
             it.toSearchResult()
         }
         return HomePageList(name, items)
     }
 
     private fun Element.toSearchResult(): SearchResponse? {
-        val id = selectFirst("a")?.attr("data-post") ?: attr("data-post") ?: return null
-        val posterUrl =
-            fixUrlNull(selectFirst(".card-img-container img, .top10-img img")?.attr("data-src"))
+        val id = attr("data-src").substringAfterLast("/").substringBefore(".")
+        val posterUrl = "https://img.nfmirrorcdn.top/poster/v/${id}.jpg"
 
         return newAnimeSearchResponse("", Id(id).toJson()) {
             this.posterUrl = posterUrl
-            posterHeaders = mapOf("Referer" to "$mainUrl/")
+            posterHeaders = mapOf("Referer" to "$mainUrl/tv/home")
         }
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
         cookie_value = if(cookie_value.isEmpty()) bypass(mainUrl) else cookie_value
-        CookieManager.getInstance().setCookie(mainUrl, "t_hash_t=$cookie_value")
-        CookieManager.getInstance().setCookie(mainUrl, "ott=nf")
-        CookieManager.getInstance().setCookie(mainUrl, "hd=on")
-        cfInterceptor.savedCookies.clear()
-        val url = "$mainUrl/mobile/search.php?s=$query&t=${APIHolder.unixTime}"
-        val data = app.get(url, referer = "$mainUrl/", interceptor = cfInterceptor).parsed<SearchData>()
+        val cookies = mapOf(
+            "t_hash_t" to cookie_value,
+            "hd" to "on",
+            "ott" to "nf"
+        )
+        val url = "$mainUrl/search.php?s=$query&t=${APIHolder.unixTime}"
+        val data = app.get(
+            url,
+            referer = "$mainUrl/tv/home",
+            cookies = cookies
+        ).parsed<SearchData>()
+
         return data.searchResult.map {
             newAnimeSearchResponse(it.t, Id(it.id).toJson()) {
                 posterUrl = "https://img.nfmirrorcdn.top/poster/v/${it.id}.jpg"
-                posterHeaders = mapOf("Referer" to "$mainUrl/")
+                posterHeaders = mapOf("Referer" to "$mainUrl/tv/home")
             }
         }
     }
@@ -88,12 +95,17 @@ class NetflixMirrorProvider : MainAPI() {
     override suspend fun load(url: String): LoadResponse? {
         cookie_value = if(cookie_value.isEmpty()) bypass(mainUrl) else cookie_value
         val id = parseJson<Id>(url).id
-        CookieManager.getInstance().setCookie(mainUrl, "t_hash_t=$cookie_value")
-        CookieManager.getInstance().setCookie(mainUrl, "ott=nf")
-        CookieManager.getInstance().setCookie(mainUrl, "hd=on")
-        cfInterceptor.savedCookies.clear()
+        val cookies = mapOf(
+            "t_hash_t" to cookie_value,
+            "ott" to "nf",
+            "hd" to "on"
+        )
         val data = app.get(
-            "$mainUrl/mobile/post.php?id=$id&t=${APIHolder.unixTime}", headers, referer = "$mainUrl/", interceptor = cfInterceptor).parsed<PostData>()
+            "$mainUrl/post.php?id=$id&t=${APIHolder.unixTime}",
+            headers,
+            referer = "$mainUrl/tv/home",
+            cookies = cookies
+        ).parsed<PostData>()
 
         val episodes = arrayListOf<Episode>()
 
@@ -140,7 +152,7 @@ class NetflixMirrorProvider : MainAPI() {
         return newTvSeriesLoadResponse(title, url, type, episodes) {
             posterUrl = "https://img.nfmirrorcdn.top/poster/v/$id.jpg"
             backgroundPosterUrl ="https://img.nfmirrorcdn.top/poster/h/$id.jpg"
-            posterHeaders = mapOf("Referer" to "$mainUrl/")
+            posterHeaders = mapOf("Referer" to "$mainUrl/tv/home")
             plot = data.desc
             year = data.year.toIntOrNull()
             tags = genre
@@ -154,16 +166,18 @@ class NetflixMirrorProvider : MainAPI() {
         title: String, eid: String, sid: String, page: Int
     ): List<Episode> {
         val episodes = arrayListOf<Episode>()
-        CookieManager.getInstance().setCookie(mainUrl, "t_hash_t=$cookie_value")
-        CookieManager.getInstance().setCookie(mainUrl, "ott=nf")
-        CookieManager.getInstance().setCookie(mainUrl, "hd=on")
+        val cookies = mapOf(
+            "t_hash_t" to cookie_value,
+            "ott" to "nf",
+            "hd" to "on"
+        )
         var pg = page
         while (true) {
             val data = app.get(
-                "$mainUrl/mobile/episodes.php?s=$sid&series=$eid&t=${APIHolder.unixTime}&page=$pg",
+                "$mainUrl/episodes.php?s=$sid&series=$eid&t=${APIHolder.unixTime}&page=$pg",
                 headers,
-                referer = "$mainUrl/",
-                interceptor = cfInterceptor
+                referer = "$mainUrl/tv/home",
+                cookies = cookies
             ).parsed<EpisodesData>()
             data.episodes?.mapTo(episodes) {
                 newEpisode(LoadData(title, it.id)) {
@@ -187,16 +201,18 @@ class NetflixMirrorProvider : MainAPI() {
         callback: (ExtractorLink) -> Unit
     ): Boolean {
         val (title, id) = parseJson<LoadData>(data)
-        CookieManager.getInstance().setCookie(mainUrl, "t_hash_t=$cookie_value")
-        CookieManager.getInstance().setCookie(mainUrl, "ott=nf")
-        CookieManager.getInstance().setCookie(mainUrl, "hd=on")
-        cfInterceptor.savedCookies.clear()
+        val cookies = mapOf(
+            "t_hash_t" to cookie_value,
+            "ott" to "nf",
+            "hd" to "on"
+        )
         val playlist = app.get(
-            "$mainUrl/mobile/playlist.php?id=$id&t=$title&tm=${APIHolder.unixTime}",
+            "$mainUrl/tv/playlist.php?id=$id&t=$title&tm=${APIHolder.unixTime}",
             headers,
-            referer = "$mainUrl/",                
-            interceptor = cfInterceptor
+            referer = "$mainUrl/tv/home",
+            cookies = cookies
         ).parsed<PlayList>()
+
         playlist.forEach { item ->
             item.sources.forEach {
                 callback.invoke(
@@ -206,7 +222,7 @@ class NetflixMirrorProvider : MainAPI() {
                         fixUrl(it.file),
                         type = ExtractorLinkType.M3U8
                     ) {
-                        this.referer = "$mainUrl/"
+                        this.referer = "$mainUrl/tv/home"
                         this.quality = getQualityFromName(it.file.substringAfter("q=", ""))
                     }
                 )
@@ -227,19 +243,17 @@ class NetflixMirrorProvider : MainAPI() {
 
     @Suppress("ObjectLiteralToLambda")
     override fun getVideoInterceptor(extractorLink: ExtractorLink): Interceptor? {
-        return Interceptor { chain ->
-            val request = chain.request()
-            if (request.url.toString().contains(".m3u8")) {
-                val newRequest = request.newBuilder()
-                    .header("Cookie", "hd=on")
-                    .build()
-                // Pass through cfInterceptor
-                return@Interceptor cfInterceptor.intercept(object : Interceptor.Chain by chain {
-                    override fun request() = newRequest
-                })
+        return object : Interceptor {
+            override fun intercept(chain: Interceptor.Chain): Response {
+                val request = chain.request()
+                if (request.url.toString().contains(".m3u8")) {
+                    val newRequest = request.newBuilder()
+                        .header("Cookie", "hd=on")
+                        .build()
+                    return chain.proceed(newRequest)
+                }
+                return chain.proceed(request)
             }
-            // Pass through cfInterceptor for non-m3u8 as well
-            return@Interceptor cfInterceptor.intercept(chain)
         }
     }
 
