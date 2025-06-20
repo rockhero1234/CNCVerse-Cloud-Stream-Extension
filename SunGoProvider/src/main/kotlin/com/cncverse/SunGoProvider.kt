@@ -123,6 +123,17 @@ class SunGoProvider : MainAPI() { // all providers must be an instance of MainAP
                 this.posterUrl = poster
             }
         }
+        var referer = if (embedUrl.contains("?http")) {
+            val firstUrl = embedUrl.substringBefore("?http")
+            try {
+            val uri = java.net.URI(firstUrl)
+            "${uri.scheme}://${uri.host}/"
+            } catch (e: Exception) {
+            firstUrl 
+            }
+        } else {
+            "https://cdn.sungohd.com/"
+        }
         val embedPlayerResponse = app.get(embedUrl, referer = "https://cdn.sungohd.com/").document
         val m3u8Url = if (embedUrl.contains("https://jiotv.site")) {
             val evalScript = embedPlayerResponse.select("script")
@@ -147,7 +158,7 @@ class SunGoProvider : MainAPI() { // all providers must be an instance of MainAP
             .firstOrNull() ?: throw Exception("No .m3u8 found")
         }
 
-        return newMovieLoadResponse(title, id, TvType.Live, m3u8Url) {
+        return newMovieLoadResponse(title, id, TvType.Live, "$m3u8Url,$referer") {
                 this.posterUrl = poster
             }
     }
@@ -159,7 +170,8 @@ class SunGoProvider : MainAPI() { // all providers must be an instance of MainAP
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val link = data
+        val link = data.substringBeforeLast(",")
+        var referer = data.substringAfterLast(",")
         callback.invoke(
             newExtractorLink(
                 name,
@@ -169,7 +181,7 @@ class SunGoProvider : MainAPI() { // all providers must be an instance of MainAP
             )
             {
                 this.quality = Qualities.Unknown.value
-                this.referer =  "https://cdn.sungohd.com/"
+                this.referer =  referer
             }
         )
         return true
