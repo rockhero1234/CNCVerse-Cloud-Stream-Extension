@@ -69,24 +69,10 @@ class TamilDhoolProvider : MainAPI() { // all providers must be an instance of M
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val finalQuery = query.replace(" ", "-").lowercase()
-        val urls = listOf(
-            "$mainUrl/sun-tv/sun-tv-serial/",
-            "$mainUrl/zee-tamil/zee-tamil-serial/",
-            "$mainUrl/vijay-tv/vijay-tv-serial/",
-            "$mainUrl/kalaignar-tv/",
-            "$mainUrl/sun-tv/sun-tv-show/",
-            "$mainUrl/zee-tamil/zee-tamil-show/",
-            "$mainUrl/vijay-tv/vijay-tv-show/",
-            "$mainUrl/sun-tv-programs/",
-            "$mainUrl/zee-tamil-programs/",
-            "$mainUrl/vijay-tv-programs/",
-        )
-        val documents = urls.map { url ->
-            app.get("$url$finalQuery", referer = "$mainUrl/").document
-        }
-        return documents.flatMap { doc ->
-            doc.select("article.regular-post").mapNotNull { it.toSearchResult() }
+        val encodedQuery = query.replace(" ", "+").lowercase()
+        val document = app.get("$mainUrl/?s=$encodedQuery", referer = "$mainUrl/").document
+        return document.select("article.regular-post").mapNotNull {
+            it.toSearchResult()
         }
     }
 
