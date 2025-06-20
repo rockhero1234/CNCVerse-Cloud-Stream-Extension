@@ -24,5 +24,5 @@ cloudstream {
     tvTypes = listOf(
         "Live",
     )
-    iconUrl = "https://github.com/NivinCNC/CNCVerse-Cloud-Stream-Extension/raw/refs/heads/master/TamilUltraProvider/icon.png"
+    iconUrl = "https://github.com/NivinCNC/CNCVerse-Cloud-Stream-Extension/raw/refs/heads/master/SunGoProvider/icon.png"
 }
