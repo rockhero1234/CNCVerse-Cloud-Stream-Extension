@@ -1,11 +1,11 @@
 // use an integer for version numbers
-version = 3
+version = 1
 
 
 cloudstream {
     // All of these properties are optional, you can safely remove them
 
-    description = "Tamil Tv Serial/Shows Provider"
+    description = "Indian Live TV Provider"
     language = "ta"
     authors = listOf("NivinCNC")
 
@@ -22,7 +22,7 @@ cloudstream {
     // You can find a list of avaliable types here:
     // https://recloudstream.github.io/cloudstream/html/app/com.lagradost.cloudstream3/-tv-type/index.html
     tvTypes = listOf(
-        "TvSeries",
+        "Live",
     )
-    iconUrl = "https://github.com/NivinCNC/CNCVerse-Cloud-Stream-Extension/raw/refs/heads/master/TamilDhoolProvider/icon.png"
+    iconUrl = "https://github.com/NivinCNC/CNCVerse-Cloud-Stream-Extension/raw/refs/heads/master/TamilUltraProvider/icon.png"
 }

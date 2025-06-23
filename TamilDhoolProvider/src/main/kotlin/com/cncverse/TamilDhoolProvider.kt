@@ -54,7 +54,7 @@ class TamilDhoolProvider : MainAPI() { // all providers must be an instance of M
             it.toSearchResult()
         }
 
-        return HomePageResponse(arrayListOf(HomePageList(request.name, home, isHorizontalImages = true)), hasNext = true)
+        return newHomePageResponse(arrayListOf(HomePageList(request.name, home, isHorizontalImages = true)), hasNext = true)
     }
 
     private fun Element.toSearchResult(): SearchResponse? {
@@ -104,13 +104,12 @@ class TamilDhoolProvider : MainAPI() { // all providers must be an instance of M
         }
 
         val episodes = listOf(
-            Episode(
-                data = link.toJson(),
-                name = title,
-                season = 1,
-                episode = 1,
-                posterUrl = poster
-            )
+            newEpisode(data = link.toJson()){
+                name = title
+                season = 1
+                episode = 1
+                this.posterUrl = poster
+            }
         )
 
         return newTvSeriesLoadResponse(title, url, TvType.TvSeries, episodes) {
