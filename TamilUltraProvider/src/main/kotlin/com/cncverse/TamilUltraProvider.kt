@@ -15,14 +15,14 @@ class TamilUltraProvider : MainAPI() { // all providers must be an instance of M
     override var name = "TamilUltra"
     override val hasMainPage = true
     override var lang = "ta"
-    override val hasDownloadSupport = true
+    override val hasDownloadSupport = false
     override val supportedTypes = setOf(
         TvType.Live
     )
 
     override suspend fun getMainPage(
-    page: Int,
-    request: MainPageRequest
+        page: Int,
+        request: MainPageRequest
     ): HomePageResponse {
          val genreClasses = listOf(
             "genre_tamil-news" to "Tamil News",

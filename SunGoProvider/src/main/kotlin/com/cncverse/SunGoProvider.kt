@@ -12,7 +12,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 
 class SunGoProvider : MainAPI() { // all providers must be an instance of MainAPI
-    override var mainUrl = "https://thingproxy.freeboard.io/fetch/https://www.sungohd.com"
+    override var mainUrl = "https://www.sungohd.com"
     override var name = "SunGo"
     override val hasMainPage = true
     override var lang = "ta"
@@ -21,15 +21,7 @@ class SunGoProvider : MainAPI() { // all providers must be an instance of MainAP
         TvType.Live
     )
 
-    override val mainPage = mainPageOf(
-        "$mainUrl/channels/tamil/" to "Tamil Channels",
-        "$mainUrl/channels/malayalam-tv/" to "Malayalam TV",
-        "$mainUrl/channels/hindi-tv/" to "Hindi TV",
-        "$mainUrl/channels/channels/sports/" to "Sports",
-        "$mainUrl/channels/telugu-tv/" to "Telugu TV",
-    )
-
-        private suspend fun getEmbed(postid: String?, nume: String): NiceResponse {
+    private suspend fun getEmbed(postid: String?, nume: String): NiceResponse {
         val body = FormBody.Builder()
             .addEncoded("action", "doo_player_ajax")
             .addEncoded("post", postid.toString())
@@ -47,23 +39,32 @@ class SunGoProvider : MainAPI() { // all providers must be an instance of MainAP
         page: Int,
         request: MainPageRequest
     ): HomePageResponse {
-        val document = if (page == 1) {
-            app.get(request.data).document
-        } else {
-            app.get(request.data + "page/$page/").document
+        val genreClasses = listOf(
+            "genre_tamil" to "Tamil",
+            "genre_malayalam-tv" to "Malayalam TV",
+            "genre_hindi-tv" to "Hindi TV",
+            "genre_sports" to "Sports",
+            "genre_telugu-tv" to "Telugu TV"
+        )
+
+        val document = app.get(mainUrl).document
+
+        val home = genreClasses.mapNotNull { (className, displayName) ->
+            document.select("div#$className").firstOrNull()?.toHomePageList(displayName)
         }
 
-        val home = document.select("div.items > article.item").mapNotNull {
-                it.toSearchResult()
-            }
+        return newHomePageResponse(home)
+    }
 
-        return newHomePageResponse(arrayListOf(HomePageList(request.name, home)), hasNext = true)
+    private fun Element.toHomePageList(sectionName: String): HomePageList {
+        val items = select("article.item").mapNotNull { it.toSearchResult() }
+        return HomePageList(sectionName, items)
     }
 
     private fun Element.toSearchResult(): SearchResponse? {
         val title = this.selectFirst("div.data > h3 > a")?.text()?.toString()?.trim()
             ?: return null
-        val href = "https://thingproxy.freeboard.io/fetch/" + fixUrl(this.selectFirst("div.data > h3 > a")?.attr("href").toString())
+        val href = fixUrl(this.selectFirst("div.data > h3 > a")?.attr("href").toString())
         val posterUrl = fixUrlNull(this.selectFirst("div.poster > img")?.attr("src"))
         return newMovieSearchResponse(title, href, TvType.Live) {
                 this.posterUrl = posterUrl
@@ -82,7 +83,7 @@ class SunGoProvider : MainAPI() { // all providers must be an instance of MainAP
             val finalUrl = if (href.startsWith("/")) {
                 mainUrl + href
             } else {
-                "https://thingproxy.freeboard.io/fetch/" + href
+                href
             }
             val posterUrl = fixUrlNull(
                 it.selectFirst("article > div.image > div.thumbnail > a > img")?.attr("src")
