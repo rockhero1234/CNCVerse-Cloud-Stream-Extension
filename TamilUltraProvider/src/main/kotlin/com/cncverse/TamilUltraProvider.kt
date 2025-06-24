@@ -105,7 +105,6 @@ class TamilUltraProvider : MainAPI() { // all providers must be an instance of M
     )
 
     override suspend fun load(url: String): LoadResponse {
-        val referer = "https://tamilultratv.com/"
         val doc = app.get(url).document
         val title = doc.select("div.sheader > div.data > h1").text()
         val poster = fixUrlNull(doc.selectFirst("div.poster > img")?.attr("src"))
@@ -117,10 +116,8 @@ class TamilUltraProvider : MainAPI() { // all providers must be an instance of M
                     url
                 ).parsed<EmbedUrl>().embedUrl
             ).toString()
-        val tempLink = "$mainUrl/" + m3u8.substringAfter(".php?")
-        val response = app.get(tempLink, referer = referer, allowRedirects = false)
-        val link = response.headers["location"] ?: tempLink
-        return newMovieLoadResponse(title, id, TvType.Live, "$referer,$link") {
+        val link = "https://tamilultratv.com/" + m3u8.substringAfter(".php?")
+        return newMovieLoadResponse("$title (Use Vpn if content didn't play)", id, TvType.Live, "$m3u8,$link") {
                 this.posterUrl = poster
             }
     }
