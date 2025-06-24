@@ -109,9 +109,17 @@ class TamilUltraProvider : MainAPI() { // all providers must be an instance of M
         val title = doc.select("div.sheader > div.data > h1").text()
         val poster = fixUrlNull(doc.selectFirst("div.poster > img")?.attr("src"))
         val id = doc.select("#player-option-1").attr("data-post")
-        
-
-        return newMovieLoadResponse(title, id, TvType.Live, "$url,$id") {
+        val m3u8 = fixUrlNull(
+                getEmbed(
+                    id,
+                    "1",
+                    url
+                ).parsed<EmbedUrl>().embedUrl
+            ).toString()
+        val tempLink = "$mainUrl/" + m3u8.substringAfter(".php?")
+        val response = app.get(tempLink, referer = url, allowRedirects = false)
+        val link = response.headers["location"] ?: tempLink
+        return newMovieLoadResponse(title, id, TvType.Live, "$url,$link") {
                 this.posterUrl = poster
             }
     }
@@ -123,20 +131,14 @@ class TamilUltraProvider : MainAPI() { // all providers must be an instance of M
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val referer = data.substringBefore(",")
-        val link = fixUrlNull(
-                getEmbed(
-                    data.substringAfter(","),
-                    "1",
-                    referer
-                ).parsed<EmbedUrl>().embedUrl
-            ).toString()
-       println("Link: $link")
+      val referer = data.substringBefore(",")
+      var link = data.substringAfter(",")
+        // Log.d("TamilUltraProvider", "Link: $link")
         callback.invoke(
             newExtractorLink(
                 name,
                 name,
-                "$mainUrl/" + link.substringAfter(".php?"),
+                link,
                 type = ExtractorLinkType.M3U8
             )
             {
