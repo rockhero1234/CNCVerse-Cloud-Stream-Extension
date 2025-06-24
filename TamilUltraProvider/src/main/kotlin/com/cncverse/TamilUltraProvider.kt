@@ -11,7 +11,7 @@ import com.lagradost.nicehttp.NiceResponse
 import okhttp3.FormBody
 
 class TamilUltraProvider : MainAPI() { // all providers must be an instance of MainAPI
-    override var mainUrl = "https://tamilultratv.com"
+    override var mainUrl = "https://thingproxy.freeboard.io/fetch/https://tamilultratv.com"
     override var name = "TamilUltra"
     override val hasMainPage = true
     override var lang = "ta"
@@ -52,7 +52,7 @@ class TamilUltraProvider : MainAPI() { // all providers must be an instance of M
     private fun Element.toSearchResult(): SearchResponse? {
         val title = this.selectFirst("div.data > h3 > a")?.text()?.toString()?.trim()
             ?: return null
-        val href = fixUrl(this.selectFirst("div.data > h3 > a")?.attr("href").toString())
+        val href = "https://thingproxy.freeboard.io/fetch/" + fixUrl(this.selectFirst("div.data > h3 > a")?.attr("href").toString())
         val posterUrl = fixUrlNull(this.selectFirst("div.poster > img")?.attr("src"))
         return newMovieSearchResponse(title, href, TvType.Live) {
                 this.posterUrl = posterUrl
@@ -72,7 +72,7 @@ class TamilUltraProvider : MainAPI() { // all providers must be an instance of M
             val finalUrl = if (href.startsWith("/")) {
                 mainUrl + href
             } else {
-                href
+                "https://thingproxy.freeboard.io/fetch/" + href
             }
             val posterUrl = fixUrlNull(
                 it.selectFirst("article > div.image > div.thumbnail > a > img")?.attr("src")
@@ -105,6 +105,7 @@ class TamilUltraProvider : MainAPI() { // all providers must be an instance of M
     )
 
     override suspend fun load(url: String): LoadResponse {
+        val referer = "https://tamilultratv.com/"
         val doc = app.get(url).document
         val title = doc.select("div.sheader > div.data > h1").text()
         val poster = fixUrlNull(doc.selectFirst("div.poster > img")?.attr("src"))
@@ -117,9 +118,9 @@ class TamilUltraProvider : MainAPI() { // all providers must be an instance of M
                 ).parsed<EmbedUrl>().embedUrl
             ).toString()
         val tempLink = "$mainUrl/" + m3u8.substringAfter(".php?")
-        val response = app.get(tempLink, referer = url, allowRedirects = false)
+        val response = app.get(tempLink, referer = referer, allowRedirects = false)
         val link = response.headers["location"] ?: tempLink
-        return newMovieLoadResponse(title, id, TvType.Live, "$url,$link") {
+        return newMovieLoadResponse(title, id, TvType.Live, "$referer,$link") {
                 this.posterUrl = poster
             }
     }

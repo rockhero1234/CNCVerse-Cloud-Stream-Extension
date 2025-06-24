@@ -12,7 +12,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 
 class SunGoProvider : MainAPI() { // all providers must be an instance of MainAPI
-    override var mainUrl = "https://www.sungohd.com"
+    override var mainUrl = "https://thingproxy.freeboard.io/fetch/https://www.sungohd.com"
     override var name = "SunGo"
     override val hasMainPage = true
     override var lang = "ta"
@@ -64,7 +64,7 @@ class SunGoProvider : MainAPI() { // all providers must be an instance of MainAP
     private fun Element.toSearchResult(): SearchResponse? {
         val title = this.selectFirst("div.data > h3 > a")?.text()?.toString()?.trim()
             ?: return null
-        val href = fixUrl(this.selectFirst("div.data > h3 > a")?.attr("href").toString())
+        val href = "https://thingproxy.freeboard.io/fetch/" + fixUrl(this.selectFirst("div.data > h3 > a")?.attr("href").toString())
         val posterUrl = fixUrlNull(this.selectFirst("div.poster > img")?.attr("src"))
         return newMovieSearchResponse(title, href, TvType.Live) {
                 this.posterUrl = posterUrl
@@ -83,7 +83,7 @@ class SunGoProvider : MainAPI() { // all providers must be an instance of MainAP
             val finalUrl = if (href.startsWith("/")) {
                 mainUrl + href
             } else {
-                href
+                "https://thingproxy.freeboard.io/fetch/" + href
             }
             val posterUrl = fixUrlNull(
                 it.selectFirst("article > div.image > div.thumbnail > a > img")?.attr("src")
