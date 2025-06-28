@@ -413,10 +413,8 @@ class MovieBoxProvider : MainAPI() {
             
             val subjectResponse = app.get(subjectUrl, headers = subjectHeaders)
             val mapper = jacksonObjectMapper()
-            
-            // Collect all subjectIds from dubs
             val subjectIds = mutableListOf<Pair<String, String>>() // Pair of (subjectId, language)
-            
+            var originalLanguageName = "Original"
             if (subjectResponse.code == 200) {
                 val subjectResponseBody = subjectResponse.body?.string()
                 if (subjectResponseBody != null) {
@@ -429,17 +427,19 @@ class MovieBoxProvider : MainAPI() {
                             val dubSubjectId = dub["subjectId"]?.asText()
                             val lanName = dub["lanName"]?.asText()
                             if (dubSubjectId != null && lanName != null) {
-                                subjectIds.add(Pair(dubSubjectId, lanName))
+                                if (dubSubjectId == originalSubjectId) {
+                                    originalLanguageName = lanName
+                                } else {
+                                    subjectIds.add(Pair(dubSubjectId, lanName))
+                                }
                             }
                         }
                     }
                 }
             }
             
-            // If no dubs found, fallback to original subjectId
-            if (subjectIds.isEmpty()) {
-                subjectIds.add(Pair(originalSubjectId, "Original"))
-            }
+            // Always add the original subject ID first as the default source with proper language name
+            subjectIds.add(0, Pair(originalSubjectId, originalLanguageName))
             
             var hasAnyLinks = false
             
