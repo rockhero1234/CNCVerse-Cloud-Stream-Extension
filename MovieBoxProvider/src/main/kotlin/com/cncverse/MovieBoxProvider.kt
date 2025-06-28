@@ -390,13 +390,17 @@ class MovieBoxProvider : MainAPI() {
         callback: (ExtractorLink) -> Unit
     ): Boolean {
         try {
-            // Parse data - for movies it's just the subjectId, for series it's "subjectId|season|episode"
             val parts = data.split("|")
-            val originalSubjectId = parts[0]
+            val originalSubjectId = if (parts[0].contains("get?subjectId")) {
+                Uri.parse(parts[0]).getQueryParameter("subjectId") ?: parts[0].substringAfterLast('/')
+            } else if(parts[0].contains("/")) {
+                parts[0].substringAfterLast('/')
+            }
+            else {
+                parts[0]
+            }
             val season = if (parts.size > 1) parts[1].toIntOrNull() ?: 0 else 0
             val episode = if (parts.size > 2) parts[2].toIntOrNull() ?: 0 else 0
-            
-            // First, get the subject info to collect all dub versions
             val subjectUrl = "$mainUrl/wefeed-mobile-bff/subject-api/get?subjectId=$originalSubjectId"
             val subjectXClientToken = generateXClientToken()
             val subjectXTrSignature = generateXTrSignature("GET", "application/json", "application/json", subjectUrl)
@@ -421,7 +425,6 @@ class MovieBoxProvider : MainAPI() {
                     val subjectRoot = mapper.readTree(subjectResponseBody)
                     val subjectData = subjectRoot["data"]
                     val dubs = subjectData?.get("dubs")
-                    
                     if (dubs != null && dubs.isArray) {
                         for (dub in dubs) {
                             val dubSubjectId = dub["subjectId"]?.asText()
@@ -475,7 +478,8 @@ class MovieBoxProvider : MainAPI() {
                                     val format = stream["format"]?.asText() ?: ""
                                     val resolutions = stream["resolutions"]?.asText() ?: ""
                                     val codecName = stream["codecName"]?.asText() ?: "h264"
-                                    val signCookie = stream["signCookie"]?.asText()
+                                    val signCookieRaw = stream["signCookie"]?.asText()
+                                    val signCookie = if (signCookieRaw.isNullOrEmpty()) null else signCookieRaw
                                     val duration = stream["duration"]?.asInt()
                                     
                                     callback.invoke(
