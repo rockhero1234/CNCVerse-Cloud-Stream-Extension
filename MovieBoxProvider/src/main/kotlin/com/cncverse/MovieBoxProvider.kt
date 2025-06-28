@@ -141,7 +141,7 @@ class MovieBoxProvider : MainAPI() {
             val data = try {
                 val mapper = jacksonObjectMapper()
                 val root = mapper.readTree(responseBody)
-                val items = root["data"]?.get("items") ?: return HomePageResponse(emptyList())
+                val items = root["data"]?.get("items") ?: return newHomePageResponse(emptyList())
                 items.mapNotNull { item ->
                     val title = item["title"]?.asText() ?: return@mapNotNull null
                     val id = item["subjectId"]?.asText() ?: return@mapNotNull null
@@ -164,7 +164,7 @@ class MovieBoxProvider : MainAPI() {
                 null
             } ?: emptyList()
 
-            return HomePageResponse(
+            return newHomePageResponse(
                 listOf(
                     HomePageList(request.name, data)
                 )
