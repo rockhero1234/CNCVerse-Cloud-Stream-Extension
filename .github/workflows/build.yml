@@ -46,6 +46,8 @@ jobs:
           CONSUMET_API: ${{ secrets.CONSUMET_API }}
           BYPASS_API: ${{ secrets.BYPASS_API }}
           SIMKL_API: ${{ secrets.SIMKL_API }}
+          MOVIEBOX_SECRET_KEY_DEFAULT: ${{ secrets.MOVIEBOX_SECRET_KEY_DEFAULT }}
+          MOVIEBOX_SECRET_KEY_ALT: ${{ secrets.MOVIEBOX_SECRET_KEY_ALT }}
         run: |
           cd $GITHUB_WORKSPACE/src
           echo CONSUMET_API=$CONSUMET_API >> local.properties
@@ -53,6 +55,9 @@ jobs:
           echo SIMKL_API=$SIMKL_API >> local.properties
 
       - name: Build Plugins
+        env:
+          MOVIEBOX_SECRET_KEY_DEFAULT: ${{ secrets.MOVIEBOX_SECRET_KEY_DEFAULT }}
+          MOVIEBOX_SECRET_KEY_ALT: ${{ secrets.MOVIEBOX_SECRET_KEY_ALT }}
         run: |
           cd $GITHUB_WORKSPACE/src
           chmod +x gradlew
