@@ -20,8 +20,9 @@ class MovieBoxProvider : MainAPI() {
     override var lang = "ta"
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
 
-    private val secretKeyDefault = System.getenv("MOVIEBOX_SECRET_KEY_DEFAULT") ?: ""
-    private val secretKeyAlt = System.getenv("MOVIEBOX_SECRET_KEY_ALT") ?: ""
+    private val secretKeyDefault = BuildConfig.MOVIEBOX_SECRET_KEY_DEFAULT
+    private val secretKeyAlt = BuildConfig.MOVIEBOX_SECRET_KEY_ALT
+
 
     private fun md5(input: ByteArray): String {
         return MessageDigest.getInstance("MD5").digest(input)
