@@ -1,6 +1,12 @@
 // use an integer for version numbers
 version = 1
 
+android {
+    buildFeatures {
+        buildConfig = true
+    }
+}
+
 cloudstream {
     language = "ta"
     // All of these properties are optional, you can safely remove them
