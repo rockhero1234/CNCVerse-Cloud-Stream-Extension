@@ -88,7 +88,6 @@ class MovieBoxProvider : MainAPI() {
         useAltKey: Boolean = false,
         hardcodedTimestamp: Long? = null
     ): String {
-        println("keys: $secretKeyDefault, $secretKeyAlt")
         val timestamp = hardcodedTimestamp ?: System.currentTimeMillis()
         val canonical = buildCanonicalString(method, accept, contentType, url, body, timestamp)
         val secret = if (useAltKey) secretKeyAlt else secretKeyDefault
