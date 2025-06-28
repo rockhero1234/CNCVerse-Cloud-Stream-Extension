@@ -53,9 +53,7 @@ jobs:
           echo CONSUMET_API=$CONSUMET_API >> local.properties
           echo BYPASS_API=$BYPASS_API >> local.properties
           echo SIMKL_API=$SIMKL_API >> local.properties
-          echo MOVIEBOX_SECRET_KEY_DEFAULT=$MOVIEBOX_SECRET_KEY_DEFAULT >> local.properties
-          echo MOVIEBOX_SECRET_KEY_ALT=$MOVIEBOX_SECRET_KEY_ALT >> local.properties
-
+    
       - name: Build Plugins
         env:
           MOVIEBOX_SECRET_KEY_DEFAULT: ${{ secrets.MOVIEBOX_SECRET_KEY_DEFAULT }}
