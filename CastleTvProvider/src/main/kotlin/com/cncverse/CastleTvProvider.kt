@@ -18,7 +18,7 @@ class CastleTvProvider : MainAPI() {
     override var mainUrl = "https://api.fstcy.com"
     override var name = "Castle TV (Use VLC)"
     override val hasMainPage = true
-    override var lang = "hi"
+    override var lang = "ta"
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
 
     private val keySupFixx = BuildConfig.CASTLE_SUFFIX
