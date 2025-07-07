@@ -116,28 +116,27 @@ class UltimaConfigureWatchSync(val plugin: UltimaPlugin) : BottomSheetDialogFrag
                                         "Save",
                                         object : DialogInterface.OnClickListener {
                                             override fun onClick(p0: DialogInterface, p1: Int) {
-                                                var token = tokenInput.text.trim().toString()
-                                                var prNum = prNumInput.text.toString().toIntOrNull()
-                                                var deviceName =
-                                                        deviceNameInput.text.trim().toString()
-                                                if (token.isNullOrEmpty() ||
-                                                                prNum == null ||
-                                                                deviceName.isNullOrEmpty()
-                                                )
-                                                        showToast("Invalid details")
-                                                else {
+                                                val token = tokenInput.text.toString().trim()
+                                                val prNum = prNumInput.text.toString().trim().toIntOrNull()
+                                                val deviceName = deviceNameInput.text.toString().trim()
+                                                if (token.isEmpty() ||
+                                                    prNum == null ||
+                                                    deviceName.isEmpty()
+                                                ) {
+                                                    showToast("Invalid details")
+                                                } else {
                                                     activity?.lifecycle?.coroutineScope?.launch {
                                                         sm.deviceSyncCreds =
-                                                                WatchSyncCreds(
-                                                                        token,
-                                                                        prNum,
-                                                                        deviceName
-                                                                )
+                                                            WatchSyncCreds(
+                                                                token,
+                                                                prNum,
+                                                                deviceName
+                                                            )
 
                                                         showToast(
-                                                                sm.deviceSyncCreds
-                                                                        ?.syncProjectDetails()
-                                                                        ?.second
+                                                            sm.deviceSyncCreds
+                                                                ?.syncProjectDetails()
+                                                                ?.second
                                                         )
                                                     }
                                                 }
