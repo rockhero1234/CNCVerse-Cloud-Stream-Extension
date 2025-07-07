@@ -562,9 +562,8 @@ class CastleTvProvider : MainAPI() {
                 return false
             }
             
-            val movieId = parts[0]
-            val episodeId = parts[1]
-            
+            val movieId = if (parts[0].contains("/")) parts[0].substringAfterLast('/') else parts[0]
+            val episodeId = parts[1]            
             
             // Get available languages/tracks first to determine languageId
             val securityKey = getSecurityKey() ?: return false
