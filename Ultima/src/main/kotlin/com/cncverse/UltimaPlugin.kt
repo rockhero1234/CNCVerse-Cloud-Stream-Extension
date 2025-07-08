@@ -7,6 +7,8 @@ import com.lagradost.cloudstream3.MainActivity.Companion.afterPluginsLoadedEvent
 import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
 import com.lagradost.cloudstream3.plugins.Plugin
 import com.lagradost.cloudstream3.plugins.PluginManager
+import com.lagradost.cloudstream3.amap
+import java.io.File
 
 @CloudstreamPlugin
 class UltimaPlugin : Plugin() {
@@ -49,14 +51,23 @@ class UltimaPlugin : Plugin() {
         }
     }
 
-     suspend fun reload(context: Context?) {
+    fun reload(context: Context?) {
         val pluginData =
-                PluginManager.getPluginsOnline().find { it.internalName.contains("Ultima") }
+            PluginManager.getPluginsOnline().find { it.internalName.contains("Ultima") }
         if (pluginData == null) {
-            PluginManager.___DO_NOT_CALL_FROM_A_PLUGIN_hotReloadAllLocalPlugins(context as AppCompatActivity)
+            (PluginManager.getPluginsLocal()).toList().amap { localPlugin ->
+                PluginManager.unloadPlugin(localPlugin.filePath)
+                PluginManager.loadPlugin(context as AppCompatActivity, File(localPlugin.filePath), localPlugin)
+            }
         } else {
             PluginManager.unloadPlugin(pluginData.filePath)
-            PluginManager.___DO_NOT_CALL_FROM_A_PLUGIN_loadAllOnlinePlugins(context ?: throw Exception("Unable to load plugins"))
+            (PluginManager.getPluginsOnline()).toList().amap { pluginData ->
+             PluginManager.loadPlugin(
+                context as AppCompatActivity,
+                File(pluginData.filePath),
+                pluginData
+            )
+        }
             afterPluginsLoadedEvent.invoke(true)
         }
     }
