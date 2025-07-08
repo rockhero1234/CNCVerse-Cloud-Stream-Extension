@@ -49,37 +49,14 @@ class UltimaPlugin : Plugin() {
         }
     }
 
-    fun reload(context: Context?) {
-        try {
-            val pluginData =
-                    PluginManager.getPluginsOnline().find { it.internalName.contains("Ultima") }
-            if (pluginData == null) {
-                // Use reflection to call the internal function if it exists
-                try {
-                    val method = PluginManager::class.java.getDeclaredMethod(
-                        "_DO_NOT_CALL_FROM_A_PLUGIN_hotReloadAllLocalPlugins",
-                        AppCompatActivity::class.java
-                    )
-                    method.invoke(null, context as AppCompatActivity)
-                } catch (e: Exception) {
-                    // If the method doesn't exist or fails, just invoke the after plugins loaded event
-                    afterPluginsLoadedEvent.invoke(true)
-                }
-            } else {
-                PluginManager.unloadPlugin(pluginData.filePath)
-                try {
-                    val method = PluginManager::class.java.getDeclaredMethod(
-                        "_DO_NOT_CALL_FROM_A_PLUGIN_loadAllOnlinePlugins",
-                        Context::class.java
-                    )
-                    method.invoke(null, context ?: throw Exception("Unable to load plugins"))
-                } catch (e: Exception) {
-                    // If the method doesn't exist or fails, continue
-                }
-                afterPluginsLoadedEvent.invoke(true)
-            }
-        } catch (e: Exception) {
-            // If anything fails, just invoke the after plugins loaded event as a fallback
+     fun reload(context: Context?) {
+        val pluginData =
+                PluginManager.getPluginsOnline().find { it.internalName.contains("Ultima") }
+        if (pluginData == null) {
+            PluginManager.___DO_NOT_CALL_FROM_A_PLUGIN_hotReloadAllLocalPlugins(context as AppCompatActivity)
+        } else {
+            PluginManager.unloadPlugin(pluginData.filePath)
+            PluginManager.___DO_NOT_CALL_FROM_A_PLUGIN_loadAllOnlinePlugins(context ?: throw Exception("Unable to load plugins"))
             afterPluginsLoadedEvent.invoke(true)
         }
     }
