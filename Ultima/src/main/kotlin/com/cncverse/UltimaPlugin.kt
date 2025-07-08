@@ -49,7 +49,7 @@ class UltimaPlugin : Plugin() {
         }
     }
 
-     fun reload(context: Context?) {
+     suspend fun reload(context: Context?) {
         val pluginData =
                 PluginManager.getPluginsOnline().find { it.internalName.contains("Ultima") }
         if (pluginData == null) {
