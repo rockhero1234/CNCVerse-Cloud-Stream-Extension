@@ -7,8 +7,6 @@ import com.lagradost.cloudstream3.MainActivity.Companion.afterPluginsLoadedEvent
 import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
 import com.lagradost.cloudstream3.plugins.Plugin
 import com.lagradost.cloudstream3.plugins.PluginManager
-import com.lagradost.cloudstream3.amap
-import java.io.File
 
 @CloudstreamPlugin
 class UltimaPlugin : Plugin() {
@@ -52,22 +50,36 @@ class UltimaPlugin : Plugin() {
     }
 
     fun reload(context: Context?) {
-        val pluginData =
-            PluginManager.getPluginsOnline().find { it.internalName.contains("Ultima") }
-        if (pluginData == null) {
-            (PluginManager.getPluginsLocal()).toList().amap { localPlugin ->
-                PluginManager.unloadPlugin(localPlugin.filePath)
-                PluginManager.loadPlugin(context as AppCompatActivity, File(localPlugin.filePath), localPlugin)
+        try {
+            val pluginData =
+                    PluginManager.getPluginsOnline().find { it.internalName.contains("Ultima") }
+            if (pluginData == null) {
+                // Use reflection to call the internal function if it exists
+                try {
+                    val method = PluginManager::class.java.getDeclaredMethod(
+                        "_DO_NOT_CALL_FROM_A_PLUGIN_hotReloadAllLocalPlugins",
+                        AppCompatActivity::class.java
+                    )
+                    method.invoke(null, context as AppCompatActivity)
+                } catch (e: Exception) {
+                    // If the method doesn't exist or fails, just invoke the after plugins loaded event
+                    afterPluginsLoadedEvent.invoke(true)
+                }
+            } else {
+                PluginManager.unloadPlugin(pluginData.filePath)
+                try {
+                    val method = PluginManager::class.java.getDeclaredMethod(
+                        "_DO_NOT_CALL_FROM_A_PLUGIN_loadAllOnlinePlugins",
+                        Context::class.java
+                    )
+                    method.invoke(null, context ?: throw Exception("Unable to load plugins"))
+                } catch (e: Exception) {
+                    // If the method doesn't exist or fails, continue
+                }
+                afterPluginsLoadedEvent.invoke(true)
             }
-        } else {
-            PluginManager.unloadPlugin(pluginData.filePath)
-            (PluginManager.getPluginsOnline()).toList().amap { pluginData ->
-             PluginManager.loadPlugin(
-                context as AppCompatActivity,
-                File(pluginData.filePath),
-                pluginData
-            )
-        }
+        } catch (e: Exception) {
+
             afterPluginsLoadedEvent.invoke(true)
         }
     }
