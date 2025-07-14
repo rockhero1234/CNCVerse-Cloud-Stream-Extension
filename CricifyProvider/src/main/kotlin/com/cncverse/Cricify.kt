@@ -15,6 +15,8 @@ import okhttp3.Request
 import okhttp3.Response
 import java.io.InputStream
 import java.util.UUID
+import android.util.Base64
+import java.nio.charset.StandardCharsets
 
 class HeaderReplacementInterceptor(private val customHeaders: Map<String, String>) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
@@ -74,7 +76,6 @@ class Cricify(
         request : MainPageRequest
     ): HomePageResponse {
         val data = IptvPlaylistParser().parseM3U(getWithCustomHeaders(mainUrl))
-        println("Fetched ${data} items from IPTV playlist")
         return newHomePageResponse(data.items.groupBy{it.attributes["group-title"]}.map { group ->
             val title = group.key ?: ""
             val show = group.value.map { channel ->
@@ -82,8 +83,8 @@ class Cricify(
                 val channelname = channel.title.toString()
                 val posterurl = channel.attributes["tvg-logo"].toString()
                 val nation = channel.attributes["group-title"].toString()
-                val key=channel.attributes["key"].toString()
-                val keyid=channel.attributes["keyid"].toString()
+                val key= channel.key ?: ""
+                val keyid= channel.keyid ?: ""
                 val userAgent = channel.userAgent ?: ""
                 val cookie = channel.cookie ?: ""
                 newLiveSearchResponse(channelname, LoadData(streamurl, channelname, posterurl, nation, key, keyid, userAgent, cookie).toJson(), TvType.Live)
@@ -159,7 +160,7 @@ class Cricify(
                 newDrmExtractorLink(
                     this.name,
                     this.name,
-                    loadData.url,
+                    loadData.url.substringBefore("?"),
                     INFER_TYPE,
                     UUID.randomUUID()
                 )
@@ -277,6 +278,22 @@ class IptvPlaylistParser {
         return parseM3U(content.byteInputStream())
     }
 
+    private fun decodeHex(hexString: String?): String {
+        if (hexString.isNullOrEmpty()) return ""
+        
+        //hexStringToByteArray
+        val length = hexString.length
+        val byteArray = ByteArray(length / 2)
+
+        for (i in 0 until length step 2) {
+            byteArray[i / 2] = ((Character.digit(hexString[i], 16) shl 4) +
+                    Character.digit(hexString[i + 1], 16)).toByte()
+        }
+        //byteArrayToBase64
+        val base64ByteArray = Base64.encode(byteArray, Base64.NO_PADDING)
+        return String(base64ByteArray, StandardCharsets.UTF_8).trim()
+    }
+
     /**
      * Parse M3U8 content [InputStream] into [Playlist]
      *
@@ -331,6 +348,17 @@ class IptvPlaylistParser {
                                 item.copy(userAgent = userAgent, headers = headers)
                         }
                     }
+                    line.startsWith("#KODIPROP:inputstream.adaptive.license_key=") -> {
+                        // Parse keyid and key from license_key
+                        if (currentIndex >= 0 && currentIndex < playlistItems.size) {
+                            val item = playlistItems[currentIndex]
+                            val licenseKey = line.removePrefix("#KODIPROP:inputstream.adaptive.license_key=").trim()
+                            val parts = licenseKey.split(":")
+                            val key = decodeHex(parts.getOrNull(0))
+                            val keyid = decodeHex(parts.getOrNull(1))
+                            playlistItems[currentIndex] = item.copy(key = key, keyid = keyid)
+                        }
+                    }
                     !line.startsWith("#") -> {
                         if (currentIndex >= 0 && currentIndex < playlistItems.size) {
                             val item = playlistItems[currentIndex]
@@ -346,9 +374,7 @@ class IptvPlaylistParser {
                                 item.copy(
                                     url = url,
                                     headers = item.headers + urlHeaders,
-                                    userAgent = userAgent ?: item.userAgent,
-                                    key = key,
-                                    keyid = keyid
+                                    userAgent = userAgent ?: item.userAgent
                                 )
                         }
                     }
