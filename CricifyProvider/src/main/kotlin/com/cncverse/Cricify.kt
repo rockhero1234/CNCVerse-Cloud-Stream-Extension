@@ -9,6 +9,7 @@ import com.lagradost.cloudstream3.utils.INFER_TYPE
 import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.newDrmExtractorLink
 import com.lagradost.cloudstream3.utils.newExtractorLink
+import com.lagradost.cloudstream3.utils.CLEARKEY_UUID
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -109,8 +110,8 @@ class Cricify(
                 val channelname = channel.title.toString()
                 val posterurl = channel.attributes["tvg-logo"].toString()
                 val nation = channel.attributes["group-title"].toString()
-                val key=channel.attributes["key"].toString()
-                val keyid=channel.attributes["keyid"].toString()
+                val key = channel.key ?: ""
+                val keyid = channel.keyid ?: ""
                 val userAgent = channel.userAgent ?: ""
                 val cookie = channel.cookie ?: ""
             newLiveSearchResponse(channelname, LoadData(streamurl, channelname, posterurl, nation, key, keyid, userAgent, cookie).toJson(), TvType.Live)
@@ -148,7 +149,7 @@ class Cricify(
     ): Boolean {
         val loadData = parseJson<LoadData>(data)
         if (loadData.url.contains("mpd"))
-        {
+        {  
             val headers = mutableMapOf<String, String>()
                 if (loadData.userAgent.isNotEmpty()) {
                     headers["User-Agent"] = loadData.userAgent
@@ -156,23 +157,45 @@ class Cricify(
                 if (loadData.cookie.isNotEmpty()) {
                     headers["Cookie"] = loadData.cookie
                 }
-            callback.invoke(
-                newDrmExtractorLink(
-                    this.name,
-                    this.name,
-                    loadData.url.substringBefore("?"),
-                    INFER_TYPE,
-                    UUID.randomUUID()
+            
+            val hasValidKeys = loadData.key.isNotEmpty() && loadData.keyid.isNotEmpty() && 
+                              loadData.key.trim() != "null" && loadData.keyid.trim() != "null"
+            
+            if (hasValidKeys) {
+                callback.invoke(
+                    newDrmExtractorLink(
+                        this.name,
+                        this.name,
+                        loadData.url,
+                        INFER_TYPE,
+                        CLEARKEY_UUID
+                    )
+                    {
+                        this.quality=Qualities.Unknown.value
+                        if (headers.isNotEmpty()) {
+                                this.headers = headers
+                            }
+                        this.key=loadData.key.trim()
+                        this.kid=loadData.keyid.trim()
+                    }
                 )
-                {
-                    this.quality=Qualities.Unknown.value
-                    if (headers.isNotEmpty()) {
+            } else {
+                // Fallback to regular MPD link if no DRM keys available
+                callback.invoke(
+                    newExtractorLink(
+                        this.name,
+                        this.name,
+                        url = loadData.url,
+                        ExtractorLinkType.DASH
+                    ) {
+                        this.referer = ""
+                        this.quality = Qualities.Unknown.value
+                        if (headers.isNotEmpty()) {
                             this.headers = headers
                         }
-                    this.key=loadData.key.trim()
-                    this.kid=loadData.keyid.trim()
-                }
-            )
+                    }
+                )
+            }
         }
         else if(loadData.url.contains("&e=.m3u"))
             {
@@ -281,17 +304,27 @@ class IptvPlaylistParser {
     private fun decodeHex(hexString: String?): String {
         if (hexString.isNullOrEmpty()) return ""
         
-        //hexStringToByteArray
-        val length = hexString.length
-        val byteArray = ByteArray(length / 2)
+        return try {
+            // Remove any whitespace and ensure even length
+            val cleanHex = hexString.trim().replace(" ", "")
+            if (cleanHex.length % 2 != 0) return ""
+            
+            //hexStringToByteArray
+            val length = cleanHex.length
+            val byteArray = ByteArray(length / 2)
 
-        for (i in 0 until length step 2) {
-            byteArray[i / 2] = ((Character.digit(hexString[i], 16) shl 4) +
-                    Character.digit(hexString[i + 1], 16)).toByte()
+            for (i in 0 until length step 2) {
+                val firstDigit = Character.digit(cleanHex[i], 16)
+                val secondDigit = Character.digit(cleanHex[i + 1], 16)
+                if (firstDigit == -1 || secondDigit == -1) return ""
+                byteArray[i / 2] = ((firstDigit shl 4) + secondDigit).toByte()
+            }
+            //byteArrayToBase64
+            val base64ByteArray = Base64.encode(byteArray, Base64.NO_PADDING)
+            String(base64ByteArray, StandardCharsets.UTF_8).trim()
+        } catch (e: Exception) {
+            ""
         }
-        //byteArrayToBase64
-        val base64ByteArray = Base64.encode(byteArray, Base64.NO_PADDING)
-        return String(base64ByteArray, StandardCharsets.UTF_8).trim()
     }
 
     /**
@@ -319,7 +352,19 @@ class IptvPlaylistParser {
                     line.startsWith(EXT_INF) -> {
                         val title = line.getTitle()
                         val attributes = line.getAttributes()
-                        playlistItems.add(PlaylistItem(title, attributes))
+                        
+                        // Extract DRM keys from attributes if present
+                        val keyFromAttr = attributes["key"] ?: attributes["drm-key"]
+                        val keyidFromAttr = attributes["keyid"] ?: attributes["drm-keyid"] ?: attributes["kid"]
+                        
+                        playlistItems.add(
+                            PlaylistItem(
+                                title = title, 
+                                attributes = attributes,
+                                key = keyFromAttr,
+                                keyid = keyidFromAttr
+                            )
+                        )
                         currentIndex = playlistItems.size - 1
                     }
                     line.startsWith("#EXTHTTP:") -> {
@@ -353,9 +398,16 @@ class IptvPlaylistParser {
                         if (currentIndex >= 0 && currentIndex < playlistItems.size) {
                             val item = playlistItems[currentIndex]
                             val licenseKey = line.removePrefix("#KODIPROP:inputstream.adaptive.license_key=").trim()
-                            val parts = licenseKey.split(":")
-                            val key = decodeHex(parts.getOrNull(0))
-                            val keyid = decodeHex(parts.getOrNull(1))
+                            
+                            // Handle different license key formats
+                            val parts = when {
+                                licenseKey.contains(":") -> licenseKey.split(":")
+                                licenseKey.contains(",") -> licenseKey.split(",")
+                                else -> listOf(licenseKey)
+                            }
+                            
+                            val keyid = decodeHex(parts.getOrNull(0))
+                            val key = decodeHex(parts.getOrNull(1))                      
                             playlistItems[currentIndex] = item.copy(key = key, keyid = keyid)
                         }
                     }
@@ -374,7 +426,9 @@ class IptvPlaylistParser {
                                 item.copy(
                                     url = url,
                                     headers = item.headers + urlHeaders,
-                                    userAgent = userAgent ?: item.userAgent
+                                    userAgent = userAgent ?: item.userAgent,
+                                    key = key ?: item.key,
+                                    keyid = keyid ?: item.keyid
                                 )
                         }
                     }
