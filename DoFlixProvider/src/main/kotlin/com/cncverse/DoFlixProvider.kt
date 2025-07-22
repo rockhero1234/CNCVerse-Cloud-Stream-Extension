@@ -372,7 +372,7 @@ class DoFlixProvider : MainAPI() {
                     type = TvType.TvSeries,
                     episodes = details.season?.flatMap { season ->
                         season.episodes.mapIndexed { index, episode ->
-                            Episode(
+                            newEpisode(
                                 data = "${details.videosId}:${season.seasonsId}:${episode.episodesId}:${episode.streamKey}",
                                 name = episode.episodesName,
                                 season = season.seasonsName.replace("Season ", "").toIntOrNull() ?: 1,
