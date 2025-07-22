@@ -372,14 +372,13 @@ class DoFlixProvider : MainAPI() {
                     type = TvType.TvSeries,
                     episodes = details.season?.flatMap { season ->
                         season.episodes.mapIndexed { index, episode ->
-                            newEpisode(
-                                data = "${details.videosId}:${season.seasonsId}:${episode.episodesId}:${episode.streamKey}",
-                                name = episode.episodesName,
-                                season = season.seasonsName.replace("Season ", "").toIntOrNull() ?: 1,
-                                episode = index + 1,
-                                posterUrl = episode.imageUrl,
-                                description = null
-                            )
+                            newEpisode("${details.videosId}|${season.seasonsId}|${episode.episodesId}|${episode.streamKey}") {
+                                this.name = episode.episodesName
+                                this.season = season.seasonsName.replace("Season ", "").toIntOrNull() ?: 1
+                                this.episode = index + 1
+                                this.posterUrl = episode.imageUrl
+                                this.description = null
+                            }
                         }
                     } ?: emptyList()
                 ) {
@@ -417,11 +416,14 @@ class DoFlixProvider : MainAPI() {
         try {
             // Data format for movies: videosId
             // Data format for episodes: videosId:seasonId:episodeId:streamKey
-            val parts = data.split(":")
-            
+            val parts = data.split("|")
             if (parts.size == 1) {
                 // Movie
-                val videosId = parts[0]
+                val videosId = if (parts[0].startsWith("https")) {
+                    parts[0].substringAfter("https://").substringAfter("/")
+                } else {
+                    parts[0]
+                }
                 val detailsUrl = "$mainUrl/rest-api//v130/single_details?type=movie&id=$videosId"
                 val detailsResponse = app.get(detailsUrl, headers = headers)
                 val details = mapper.readValue<SingleDetailsResponse>(detailsResponse.text)
@@ -457,8 +459,11 @@ class DoFlixProvider : MainAPI() {
                 
                 return details.videos?.isNotEmpty() == true
             } else if (parts.size == 4) {
-                // Episode
-                val videosId = parts[0]
+                val videosId = if (parts[0].startsWith("https")) {
+                    parts[0].substringAfter("https://").substringAfter("/")
+                } else {
+                    parts[0]
+                }
                 val seasonId = parts[1]
                 val episodeId = parts[2]
                 val streamKey = parts[3]
