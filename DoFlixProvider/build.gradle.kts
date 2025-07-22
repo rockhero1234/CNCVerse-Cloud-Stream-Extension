@@ -1,5 +1,4 @@
-// use an integer for version numbers
-version = 5
+version = 1
 
 android {
     buildFeatures {
@@ -7,11 +6,12 @@ android {
     }
 }
 
+
 cloudstream {
     language = "ta"
     // All of these properties are optional, you can safely remove them
 
-    description = "Multi Language Movies and Series Provider"
+    description = "DoFlix Provider for Movies and TV Series"
     authors = listOf("CNCVerse")
 
     /**
@@ -23,9 +23,9 @@ cloudstream {
      * */
     status = 1 // will be 3 if unspecified
     tvTypes = listOf(
+        "TvSeries",
         "Movie",
-        "TvSeries"
     )
 
-    iconUrl = "https://github.com/NivinCNC/CNCVerse-Cloud-Stream-Extension/raw/refs/heads/master/MovieBoxProvider/icon.png"
+    iconUrl = "https://www.google.com/s2/favicons?domain=dooflixpanel.com&sz=%size%"
 }
