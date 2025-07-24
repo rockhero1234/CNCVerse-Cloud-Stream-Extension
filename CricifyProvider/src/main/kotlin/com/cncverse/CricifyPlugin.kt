@@ -1,12 +1,16 @@
 package com.cncverse
 
-import com.lagradost.cloudstream3.plugins.BasePlugin
+import android.content.Context
+import androidx.appcompat.app.AppCompatActivity
+import com.lagradost.cloudstream3.CommonActivity.activity
+import com.lagradost.cloudstream3.plugins.Plugin
 import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
 
 @CloudstreamPlugin
-class CricifyPlugin: BasePlugin() {
-    override fun load() {
-        // Register multiple IPTV providers with different parameters
+class CricifyPlugin: Plugin() {
+    private val sharedPref = activity?.getSharedPreferences("Cricify", Context.MODE_PRIVATE)
+
+    // Register multiple IPTV providers with different parameters
         val iptvProviders = listOf(
             mapOf("id" to 13, "title" to "TATA PLAY", "catLink" to "https://hotstar-live.developed-for-cricfy.workers.dev/?token=240bb9-374e2e-3c13f0-4a6c75"),
             mapOf("id" to 14, "title" to "HOTSTAR", "catLink" to "https://hotstar-live-event.developed-for-jiohotstar-live-event.workers.dev/?token=154dc5-7a9126-56996d-1fa267"),
@@ -55,12 +59,36 @@ class CricifyPlugin: BasePlugin() {
             mapOf("id" to 163, "title" to "OPPLX", "catLink" to "https://ranapk.short.gy/TGmx@RANAPKX73/OPPLEXTV.m3u")
         )
         
-        // Register each provider
-        iptvProviders.forEach { provider ->
-            registerMainAPI(Cricify(
-                customName = provider["title"] as String,
-                customMainUrl = provider["catLink"] as String
-            ))
+//        // Register each provider
+//        iptvProviders.forEach { provider ->
+//            registerMainAPI(Cricify(
+//                customName = provider["title"] as String,
+//                customMainUrl = provider["catLink"] as String
+//            ))
+//        }
+
+    override fun load(context: Context) {
+        val providerSettings = iptvProviders.mapNotNull { provider ->
+            val title = provider["title"] as? String ?: return@mapNotNull null
+            title to (sharedPref?.getBoolean(title, false) ?: false)
+        }.toMap()
+
+        val selectedProviders = iptvProviders.filter {
+            val title = it["title"] as? String
+            title != null && providerSettings[title] == true
+        }
+
+        selectedProviders.forEach { provider ->
+            val title = provider["title"] as String
+            val catLink = provider["catLink"] as String
+            registerMainAPI(Cricify(title, catLink))
+        }
+
+        val activity = context as AppCompatActivity
+        openSettings = {
+            val frag = Settings(this, sharedPref, iptvProviders.mapNotNull { it["title"] as? String })
+            frag.show(activity.supportFragmentManager, "CricifySettings")
         }
     }
+
 }

@@ -1,10 +1,15 @@
 // use an integer for version numbers
-version = 2
+version = 3
 
 android {
     buildFeatures {
         buildConfig = true
+        viewBinding = true
     }
+}
+dependencies {
+    implementation("androidx.core:core:1.16.0")
+    implementation("com.google.android.material:material:1.12.0")
 }
 
 cloudstream {
@@ -24,6 +29,7 @@ cloudstream {
     tvTypes = listOf(
         "Live",
     )
+    requiresResources = true
 
     iconUrl = "https://cricfy.pro/wp-content/uploads/2024/11/cropped-cricfytv-2.png"
 
