@@ -121,11 +121,9 @@ class Settings(
             setPadding(0, 0, 0, 8)
         }
 
-        // Create TextView
-        val textView = TextView(this@Settings.requireContext()).apply {
+        // Create CheckBox
+        val checkBox = CheckBox(this@Settings.requireContext()).apply {
             id = View.generateViewId()
-            text = playlistName.substringAfter("playlist_")
-            textSize = 16f
             layoutParams = RelativeLayout.LayoutParams(
                 RelativeLayout.LayoutParams.WRAP_CONTENT,
                 RelativeLayout.LayoutParams.WRAP_CONTENT
@@ -135,15 +133,18 @@ class Settings(
             }
         }
 
-        // Create CheckBox
-        val checkBox = CheckBox(this@Settings.requireContext()).apply {
+        // Create TextView
+        val textView = TextView(this@Settings.requireContext()).apply {
             id = View.generateViewId()
+            text = playlistName.substringAfter("playlist_")
+            textSize = 16f
             layoutParams = RelativeLayout.LayoutParams(
                 RelativeLayout.LayoutParams.WRAP_CONTENT,
                 RelativeLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                addRule(RelativeLayout.ALIGN_PARENT_END)
+                addRule(RelativeLayout.END_OF, checkBox.id)
                 addRule(RelativeLayout.CENTER_VERTICAL)
+                marginStart = 16 // Add some spacing between checkbox and text
             }
         }
 
@@ -162,8 +163,8 @@ class Settings(
         }
 
         // Add views to RelativeLayout
-        relativeLayout.addView(textView)
         relativeLayout.addView(checkBox)
+        relativeLayout.addView(textView)
 
         // Set the RelativeLayout as the content view
         return relativeLayout

@@ -42,7 +42,7 @@ class Cricify(
     private val customName: String = "IPTV Player",
     private val customMainUrl: String = "https://fifabd.site/OPLLX7/LIVE2.m3u"
 ) : MainAPI() {
-    override var lang = "hi"
+    override var lang = "ta"
     override var mainUrl = customMainUrl
     override var name = customName
     override val hasMainPage = true
