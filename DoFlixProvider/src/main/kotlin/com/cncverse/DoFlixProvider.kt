@@ -354,7 +354,7 @@ class DoFlixProvider : MainAPI() {
                         this.recommendations = related.take(10).map { item ->
                             newMovieSearchResponse(
                                 name = item.title,
-                                url = "$mainUrl/movie/${item.slug}",
+                                url = "movie,${item.videosId}",
                                 type = TvType.Movie
                             ) {
                                 this.posterUrl = item.posterUrl
@@ -373,7 +373,7 @@ class DoFlixProvider : MainAPI() {
                     episodes = details.season?.flatMap { season ->
                         season.episodes.mapIndexed { index, episode ->
                             newEpisode("${details.videosId}|${season.seasonsId}|${episode.episodesId}|${episode.streamKey}") {
-                                this.name = episode.episodesName
+                                this.name = "Episode ${index + 1}"
                                 this.season = season.seasonsName.replace("Season ", "").toIntOrNull() ?: 1
                                 this.episode = index + 1
                                 this.posterUrl = episode.imageUrl
@@ -391,7 +391,7 @@ class DoFlixProvider : MainAPI() {
                         this.recommendations = related.take(10).map { item ->
                             newTvSeriesSearchResponse(
                                 name = item.title,
-                                url = "$mainUrl/series/${item.slug}",
+                                url = "tvseries,${item.videosId}",
                                 type = TvType.TvSeries
                             ) {
                                 this.posterUrl = item.posterUrl
@@ -480,7 +480,7 @@ class DoFlixProvider : MainAPI() {
                     callback.invoke(
                         newExtractorLink(
                             source = this.name,
-                            name = episode.episodesName,
+                            name = this.name,
                             url = episode.fileUrl,
                             type = ExtractorLinkType.M3U8
                         ) {
