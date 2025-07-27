@@ -12,7 +12,7 @@ cloudstream {
     // All of these properties are optional, you can safely remove them
 
     description = "DoFlix Provider for Movies and TV Series"
-    authors = listOf("CNCVerse")
+    authors = listOf("NivinCNC")
 
     /**
      * Status int as the following:
