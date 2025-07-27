@@ -345,7 +345,7 @@ class CastleTvProvider : MainAPI() {
                     }
                 } ?: emptyList()
                 
-                if (contents.isNotEmpty()) {
+                if (contents.isNotEmpty() && rowName != "Hot Erotic Series" && rowName != "Bollywood Star") {
                     HomePageList(rowName, contents)
                 } else {
                     null
