@@ -59,7 +59,20 @@ class HDO : TmdbProvider() {
                 episode = mediaData.episode,
                 type = mediaData.type
             )
-            
+            SubUtils.invokeWyZIESUBAPI(
+                mediaData.imdbId,
+                mediaData.season,
+                mediaData.episode,
+                subtitleCallback,
+            )
+        
+    
+            SubUtils.invokeSubtitleAPI(
+                mediaData.imdbId,
+                mediaData.season,
+                mediaData.episode,
+                subtitleCallback
+            )
             var hasResults = false
             
             // Try multiple providers
@@ -99,10 +112,13 @@ class HDO : TmdbProvider() {
             
             if (hasResults) {
                 Log.d("HDOProvider", "Successfully loaded video links from one or more providers")
+        
             } else {
                 Log.w("HDOProvider", "Failed to load video links from all providers")
             }
         }
+
+
         
         return true
     }

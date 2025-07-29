@@ -67,16 +67,13 @@ class MovieBoxProvider : MainAPI() {
         } else ""
 
         val bodyLength = bodyBytes?.size?.toString() ?: ""
-
-        return listOf(
-            method.uppercase(),
-            accept ?: "",
-            contentType ?: "",
-            bodyLength,
-            timestamp.toString(),
-            bodyHash,
-            canonicalUrl
-        ).joinToString("\n")
+        return "${method.uppercase()}\n" +
+                "${accept ?: ""}\n" +
+                "${contentType ?: ""}\n" +
+                "$bodyLength\n" +
+                "${timestamp.toString()}\n" +
+                "$bodyHash\n" +
+                "$canonicalUrl"
     }
 
     private fun generateXTrSignature(
@@ -481,6 +478,7 @@ class MovieBoxProvider : MainAPI() {
                                     val signCookieRaw = stream["signCookie"]?.asText()
                                     val signCookie = if (signCookieRaw.isNullOrEmpty()) null else signCookieRaw
                                     val duration = stream["duration"]?.asInt()
+                                    val id = stream["id"]?.asText() ?: "$subjectId|$season|$episode"
                                     
                                     callback.invoke(
                                         newExtractorLink(
@@ -502,6 +500,76 @@ class MovieBoxProvider : MainAPI() {
                                             }
                                         }
                                     )
+                                    val subLink = "$mainUrl/wefeed-mobile-bff/subject-api/get-stream-captions?subjectId=$subjectId&streamId=$id"
+                                    val xClientToken = generateXClientToken()
+                                    val xTrSignature = generateXTrSignature("GET", "", "", subLink)
+                                    val headers = mapOf(
+                                        "User-Agent" to "com.community.mbox.in/50020042 (Linux; U; Android 16; en_IN; sdk_gphone64_x86_64; Build/BP22.250325.006; Cronet/133.0.6876.3)",
+                                        "Accept" to "",
+                                        "X-Client-Info" to """{"package_name":"com.community.mbox.in","version_name":"3.0.03.0529.03","version_code":50020042,"os":"android","os_version":"16","device_id":"da2b99c821e6ea023e4be55b54d5f7d8","install_store":"ps","gaid":"d7578036d13336cc","brand":"google","model":"sdk_gphone64_x86_64","system_language":"en","net":"NETWORK_WIFI","region":"IN","timezone":"Asia/Calcutta","sp_code":""}""",
+                                        "X-Client-Status" to "0",
+                                        "Content-Type" to "",
+                                        "X-Client-Token" to xClientToken,
+                                        "x-tr-signature" to xTrSignature,      
+                                    )
+                                    val subResponse = app.get(subLink, headers = headers)
+                                        if (subResponse != null) {
+                                            val subRoot = mapper.readTree(subResponse.toString())
+                                            val extCaptions = subRoot["data"]?.get("extCaptions")
+                                            if (extCaptions != null && extCaptions.isArray) {
+                                                for (caption in extCaptions) {
+                                                    val captionUrl = caption["url"]?.asText() ?: continue
+                                                    val lang = caption["language"]?.asText()
+                                                        ?: caption["lanName"]?.asText()
+                                                        ?: caption["lan"]?.asText()
+                                                        ?: "Unknown"
+                                                    subtitleCallback.invoke(
+                                                        SubtitleFile(
+                                                            url = captionUrl,
+                                                            lang = lang
+                                                        )
+                                                    )
+                                                }
+                                            }
+                                        
+                                    }
+
+                                    val subLink1 = "$mainUrl/wefeed-mobile-bff/subject-api/get-ext-captions?subjectId=$subjectId&resourceId=$id&episode=0"
+                                    val xClientToken1 = generateXClientToken()
+                                    val xTrSignature1 = generateXTrSignature("GET", "", "", subLink1)
+                                    val headers1 = mapOf(
+                                        "User-Agent" to "com.community.mbox.in/50020042 (Linux; U; Android 16; en_IN; sdk_gphone64_x86_64; Build/BP22.250325.006; Cronet/133.0.6876.3)",
+                                        "Accept" to "",
+                                        "X-Client-Info" to """{"package_name":"com.community.mbox.in","version_name":"3.0.03.0529.03","version_code":50020042,"os":"android","os_version":"16","device_id":"da2b99c821e6ea023e4be55b54d5f7d8","install_store":"ps","gaid":"d7578036d13336cc","brand":"google","model":"sdk_gphone64_x86_64","system_language":"en","net":"NETWORK_WIFI","region":"IN","timezone":"Asia/Calcutta","sp_code":""}""",
+                                        "X-Client-Status" to "0",
+                                        "Content-Type" to "",
+                                        "X-Client-Token" to xClientToken1,
+                                        "x-tr-signature" to xTrSignature1,      
+                                    )
+                                    val subResponse1 = app.get(subLink1, headers = headers1)
+                            
+                                        if (subResponse1 != null) {
+                                            val subRoot = mapper.readTree(subResponse1.toString())
+                                            val extCaptions = subRoot["data"]?.get("extCaptions")
+                                            if (extCaptions != null && extCaptions.isArray) {
+                                                for (caption in extCaptions) {
+                                                    println("Caption: $caption")
+                                                    val captionUrl = caption["url"]?.asText() ?: continue
+                                                    val lang = caption["lan"]?.asText()
+                                                        ?: caption["lanName"]?.asText()
+                                                        ?: caption["language"]?.asText()
+                                                        ?: "Unknown"
+                                                    subtitleCallback.invoke(
+                                                        SubtitleFile(
+                                                            url = captionUrl,
+                                                            lang = lang
+                                                        )
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    
+
                                     hasAnyLinks = true
                                 }
                             }
