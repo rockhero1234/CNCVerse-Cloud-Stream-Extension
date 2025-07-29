@@ -526,7 +526,7 @@ class MovieBoxProvider : MainAPI() {
                                                     subtitleCallback.invoke(
                                                         SubtitleFile(
                                                             url = captionUrl,
-                                                            lang = lang
+                                                            lang = "$lang ($language - $resolutions)"
                                                         )
                                                     )
                                                 }
@@ -562,7 +562,7 @@ class MovieBoxProvider : MainAPI() {
                                                     subtitleCallback.invoke(
                                                         SubtitleFile(
                                                             url = captionUrl,
-                                                            lang = lang
+                                                            lang = "$lang ($language - $resolutions)"
                                                         )
                                                     )
                                                 }
