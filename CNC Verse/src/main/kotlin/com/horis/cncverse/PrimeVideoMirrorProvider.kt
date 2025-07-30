@@ -27,7 +27,7 @@ class PrimeVideoMirrorProvider : MainAPI() {
     )
     override var lang = "ta"
 
-    override var mainUrl = "https://net2025.cc/"
+    override var mainUrl = "https://net2025.cc"
     override var name = "PrimeVideo"
 
     override val hasMainPage = true
