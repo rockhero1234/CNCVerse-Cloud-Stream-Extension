@@ -65,7 +65,7 @@ class CricifyPlugin: Plugin() {
     override fun load(context: Context) {
         val providerSettings = iptvProviders.mapNotNull { provider ->
             val title = provider["title"] as? String ?: return@mapNotNull null
-            title to (sharedPref?.getBoolean(title, true) ?: true)
+            title to (sharedPref?.getBoolean(title, false) ?: false)
         }.toMap()
 
         val selectedProviders = iptvProviders.filter {
