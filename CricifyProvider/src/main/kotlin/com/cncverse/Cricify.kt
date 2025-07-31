@@ -337,9 +337,9 @@ class IptvPlaylistParser {
     fun parseM3U(input: InputStream): Playlist {
         val reader = input.bufferedReader()
 
-        if (!reader.readLine().isExtendedM3u()) {
-            throw PlaylistParserException.InvalidHeader()
-        }
+        // if (!reader.readLine().isExtendedM3u()) {
+        //     throw PlaylistParserException.InvalidHeader()
+        // }
 
         val playlistItems: MutableList<PlaylistItem> = mutableListOf()
         var currentIndex = -1
