@@ -1,21 +1,29 @@
 package com.cncverse
 
-import android.content.Context
-import androidx.appcompat.app.AppCompatActivity
-import com.lagradost.cloudstream3.CommonActivity.activity
-import com.lagradost.cloudstream3.plugins.Plugin
-import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
-import kotlinx.coroutines.runBlocking
+import com.lagradost.cloudstream3.utils.AppUtils.parseJson
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.concurrent.TimeUnit
 
-@CloudstreamPlugin
-class CricifyPlugin: Plugin() {
-    private val sharedPref = activity?.getSharedPreferences("Cricify", Context.MODE_PRIVATE)
+data class ProviderData(
+    val id: Int,
+    val title: String,
+    val image: String,
+    val catLink: String?
+)
 
-    // This will be populated dynamically from the API or fallback to static list
-    private var iptvProviders: List<Map<String, Any>> = emptyList()
-
-    // Static fallback providers (moved to ProviderManager)
-    private val staticProviders = listOf(
+object ProviderManager {
+    private const val PROVIDERS_URL = "https://cfyhkjdbjkgvhjhb65.top/cats.txt"
+    
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .build()
+    
+    // Fallback providers (current static list)
+    private val fallbackProviders = listOf(
         mapOf("id" to 13, "title" to "TATA PLAY", "image" to "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQz_qYe3Y4S5bXXVlPtXQnqtAkLw1-no57QHhPyMgWE0SQmxujzHxZKiDs&s=10", "catLink" to "https://hotstar-live.api-horizon.workers.dev/?token=240bb9-374e2e-3c13f0-4a7xz5"),
         mapOf("id" to 14, "title" to "HOTSTAR", "image" to "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRWwYjMvB58DMLsL9Ii2fhvw6NBYvD1iVCjOMU8TXBLJt0eibLGOjoRkLJP&s=10", "catLink" to "https://hotstar-live-event.alpha-circuit.workers.dev/?token=154dc5-7a9126-56996d-1fa267"),
         mapOf("id" to 15, "title" to "TOFFEE", "image" to "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSMyZDO9XUGRDgVFJZ1s1EsqmQmGkYZtzxtqxQEokFBN-JQ8c8DA1Z2FEl1&s=10", "catLink" to "https://tv.noobon.top/playlist/toffee.php"),
@@ -57,38 +65,50 @@ class CricifyPlugin: Plugin() {
         mapOf("id" to 163, "title" to "JIOHOTSTAR", "image" to "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSPuz9ekmjh3vEpEc3lYL4nh6Gj7y2CQTswVG-ZCHnIS1foScuwPzuyxic&s=10", "catLink" to "https://raw.githubusercontent.com/alex4528/m3u/refs/heads/main/jstar.m3u"),
         mapOf("id" to 164, "title" to "World Sports", "image" to "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT7iSlqAmYv4wa-7P9aRqiLVniqbUQUtVNmgsf4BxJJqpRKNJVhlVHvFKI&s=10", "catLink" to "https://tv.noobon.top/playlist/daddyhdlive.php")
     )
-
-    override fun load(context: Context) {
-        iptvProviders = runBlocking {
+    
+    suspend fun fetchProviders(): List<Map<String, Any>> {
+        return withContext(Dispatchers.IO) {
             try {
-                ProviderManager.fetchProviders()
+                val request = Request.Builder()
+                    .url(PROVIDERS_URL)
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                    .build()
+                
+                val response = client.newCall(request).execute()
+                if (response.isSuccessful) {
+                    val encryptedData = response.body?.string()
+                    if (!encryptedData.isNullOrBlank()) {
+                        println("ProviderManager: Received encrypted data length: ${encryptedData.length}")
+                        println("ProviderManager: First 100 chars: ${encryptedData.take(100)}")
+                        val decryptedData = CryptoUtils.decryptData(encryptedData.trim())
+                        if (!decryptedData.isNullOrBlank()) {
+                            println("ProviderManager: Decryption successful, data length: ${decryptedData.length}")
+                            val providers = parseJson<List<ProviderData>>(decryptedData)
+                            // Filter providers that have catLink (exclude category headers)
+                            return@withContext providers?.filter { !it.catLink.isNullOrBlank() }
+                                ?.map { provider ->
+                                    mapOf(
+                                        "id" to provider.id,
+                                        "title" to provider.title,
+                                        "image" to provider.image,
+                                        "catLink" to provider.catLink!!
+                                    )
+                                } ?: fallbackProviders
+                        } else {
+                            println("ProviderManager: Decryption failed or returned empty data")
+                        }
+                    } else {
+                        println("ProviderManager: Received empty or null encrypted data")
+                    }
+                } else {
+                    println("ProviderManager: HTTP request failed with code: ${response.code}")
+                }
             } catch (e: Exception) {
+                println("ProviderManager: Exception occurred: ${e.javaClass.simpleName}: ${e.message}")
                 e.printStackTrace()
-                staticProviders 
             }
-        }
-
-        val providerSettings = iptvProviders.mapNotNull { provider ->
-            val title = provider["title"] as? String ?: return@mapNotNull null
-            title to (sharedPref?.getBoolean(title, false) ?: false)
-        }.toMap()
-
-        val selectedProviders = iptvProviders.filter {
-            val title = it["title"] as? String
-            title != null && providerSettings[title] == true
-        }
-
-        selectedProviders.forEach { provider ->
-            val title = provider["title"] as String
-            val catLink = provider["catLink"] as String
-            registerMainAPI(Cricify(title, catLink))
-        }
-
-        val activity = context as AppCompatActivity
-        openSettings = {
-            val frag = Settings(this, sharedPref, iptvProviders.mapNotNull { it["title"] as? String })
-            frag.show(activity.supportFragmentManager, "CricifySettings")
+            // Return fallback providers if fetching fails
+            fallbackProviders
         }
     }
-
 }

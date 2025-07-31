@@ -72,6 +72,7 @@ subprojects {
             buildConfigField("String", "SIMKL_API", "\"${getSecret("SIMKL_API")}\"")
             buildConfigField("String", "MAL_API", "\"${getSecret("MAL_API")}\"")
             buildConfigField("String", "LIBRARY_PACKAGE_NAME", "\"com.cncverse\"")
+            buildConfigField("String", "CRICIFY_PROVIDER_SECRET", "\"${getSecret("CRICIFY_PROVIDER_SECRET")}\"")
         }
 
         compileOptions {
