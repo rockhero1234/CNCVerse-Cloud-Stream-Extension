@@ -553,7 +553,6 @@ class MovieBoxProvider : MainAPI() {
                                             val extCaptions = subRoot["data"]?.get("extCaptions")
                                             if (extCaptions != null && extCaptions.isArray) {
                                                 for (caption in extCaptions) {
-                                                    println("Caption: $caption")
                                                     val captionUrl = caption["url"]?.asText() ?: continue
                                                     val lang = caption["lan"]?.asText()
                                                         ?: caption["lanName"]?.asText()

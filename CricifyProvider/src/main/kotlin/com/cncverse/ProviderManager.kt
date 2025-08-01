@@ -78,11 +78,8 @@ object ProviderManager {
                 if (response.isSuccessful) {
                     val encryptedData = response.body?.string()
                     if (!encryptedData.isNullOrBlank()) {
-                        println("ProviderManager: Received encrypted data length: ${encryptedData.length}")
-                        println("ProviderManager: First 100 chars: ${encryptedData.take(100)}")
                         val decryptedData = CryptoUtils.decryptData(encryptedData.trim())
                         if (!decryptedData.isNullOrBlank()) {
-                            println("ProviderManager: Decryption successful, data length: ${decryptedData.length}")
                             val providers = parseJson<List<ProviderData>>(decryptedData)
                             // Filter providers that have catLink (exclude category headers)
                             return@withContext providers?.filter { !it.catLink.isNullOrBlank() }
@@ -95,16 +92,12 @@ object ProviderManager {
                                     )
                                 } ?: fallbackProviders
                         } else {
-                            println("ProviderManager: Decryption failed or returned empty data")
                         }
                     } else {
-                        println("ProviderManager: Received empty or null encrypted data")
                     }
                 } else {
-                    println("ProviderManager: HTTP request failed with code: ${response.code}")
                 }
             } catch (e: Exception) {
-                println("ProviderManager: Exception occurred: ${e.javaClass.simpleName}: ${e.message}")
                 e.printStackTrace()
             }
             // Return fallback providers if fetching fails

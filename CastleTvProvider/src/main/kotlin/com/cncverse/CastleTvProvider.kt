@@ -13,6 +13,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import java.nio.charset.StandardCharsets
 import java.time.Instant
 import java.time.ZoneId
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 
 class CastleTvProvider : MainAPI() {
     override var mainUrl = "https://api.fstcy.com"
@@ -290,7 +292,6 @@ class CastleTvProvider : MainAPI() {
             
             cipher.init(Cipher.DECRYPT_MODE, secretKey, ivSpec)
             val decrypted = cipher.doFinal(encryptedData)
-            
             String(decrypted, StandardCharsets.UTF_8)
         } catch (e: Exception) {
             null
@@ -596,11 +597,29 @@ class CastleTvProvider : MainAPI() {
 
                 for (resolution in resolutions) {
                     try {
-                        val videoUrl = "$mainUrl/film-api/v1.9.1/movie/getVideo?apkSignKey=ED0955EB04E67A1D9F3305B95454FED485261475&channel=IndiaA&clientType=1&clientType=1&episodeId=$episodeId&lang=en-US&languageId=$languageId&mode=1&movieId=$movieId&packageName=com.external.castle&resolution=$resolution"
-                        val videoResponse = app.get(videoUrl)
+                        val videoUrl = "$mainUrl/film-api/v2.0.1/movie/getVideo2?clientType=1&packageName=com.external.castle&channel=IndiaA&lang=en-US"
+                        val postBody = """
+                            {
+                              "mode": "1",
+                              "appMarket": "GuanWang",
+                              "clientType": "1",
+                              "woolUser": "false",
+                              "apkSignKey": "ED0955EB04E67A1D9F3305B95454FED485261475",
+                              "androidVersion": "13",
+                              "movieId": "$movieId",
+                              "episodeId": "$episodeId",
+                              "isNewUser": "true",
+                              "resolution": "$resolution",
+                              "packageName": "com.external.castle"
+                            }
+                        """.trimIndent()
+
+                        val videoResponse = app.post(
+                            url = videoUrl,
+                            requestBody = postBody.toRequestBody("application/json; charset=utf-8".toMediaType()),
+                        )
 
                         val encryptedData = videoResponse.text
-
                         if (encryptedData.isNullOrBlank()) {
                             continue
                         }

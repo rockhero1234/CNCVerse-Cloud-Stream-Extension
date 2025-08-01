@@ -16,10 +16,6 @@ object CryptoUtils {
                 .replace("\r", "")
                 .replace(" ", "")
                 .replace("\t", "")
-            
-            println("CryptoUtils: Original length: ${encryptedBase64.length}, Clean length: ${cleanBase64.length}")
-            println("CryptoUtils: Clean data first 50 chars: ${cleanBase64.take(50)}")
-            
             // 1. Extract IV - reverse first 16 chars
             val ivRaw = SECRET.substring(0, 16).reversed()
             val iv = ivRaw.toByteArray(Charsets.UTF_8)
@@ -28,7 +24,6 @@ object CryptoUtils {
             val keyRaw = SECRET.substring(11, SECRET.length - 1).reversed()
             val key = keyRaw.toByteArray(Charsets.ISO_8859_1)
             
-            println("CryptoUtils: IV length: ${iv.size}, Key length: ${key.size}")
             
             // 3. Decode and decrypt
             val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
@@ -39,34 +34,26 @@ object CryptoUtils {
             val decoded = try {
                 Base64.decode(cleanBase64, Base64.NO_WRAP)
             } catch (e: IllegalArgumentException) {
-                println("CryptoUtils: NO_WRAP failed, trying DEFAULT")
                 try {
                     Base64.decode(cleanBase64, Base64.DEFAULT)
                 } catch (e2: IllegalArgumentException) {
-                    println("CryptoUtils: DEFAULT failed, trying URL_SAFE")
                     Base64.decode(cleanBase64, Base64.URL_SAFE)
                 }
             }
-            println("CryptoUtils: Decoded bytes length: ${decoded.size}")
             
             val decrypted = cipher.doFinal(decoded)
-            println("CryptoUtils: Decrypted bytes length: ${decrypted.size}")
             
             // 4. Remove PKCS5 padding
             val padLen = decrypted.last().toInt() and 0xFF
-            println("CryptoUtils: Padding length: $padLen")
             if (padLen <= 0 || padLen > 16) {
                 // Invalid padding, try without removing padding
-                println("CryptoUtils: Invalid padding, returning without padding removal")
                 return String(decrypted, Charsets.UTF_8).trim('\u0000')
             }
             val plaintext = decrypted.sliceArray(0 until (decrypted.size - padLen))
             
             val result = String(plaintext, Charsets.UTF_8)
-            println("CryptoUtils: Final result length: ${result.length}")
             result
         } catch (e: Exception) {
-            println("CryptoUtils: Decryption failed: ${e.javaClass.simpleName}: ${e.message}")
             e.printStackTrace()
             null
         }
