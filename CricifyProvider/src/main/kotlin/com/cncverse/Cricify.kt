@@ -88,7 +88,8 @@ class Cricify(
                 val keyid= channel.keyid ?: ""
                 val userAgent = channel.userAgent ?: ""
                 val cookie = channel.cookie ?: ""
-                newLiveSearchResponse(channelname, LoadData(streamurl, channelname, posterurl, nation, key, keyid, userAgent, cookie).toJson(), TvType.Live)
+                val licenseUrl = channel.licenseUrl ?: ""
+                newLiveSearchResponse(channelname, LoadData(streamurl, channelname, posterurl, nation, key, keyid, userAgent, cookie, licenseUrl).toJson(), TvType.Live)
                 {
                     this.posterUrl=posterurl
                     this.apiName
@@ -114,7 +115,8 @@ class Cricify(
                 val keyid = channel.keyid ?: ""
                 val userAgent = channel.userAgent ?: ""
                 val cookie = channel.cookie ?: ""
-            newLiveSearchResponse(channelname, LoadData(streamurl, channelname, posterurl, nation, key, keyid, userAgent, cookie).toJson(), TvType.Live)
+                val licenseUrl = channel.licenseUrl ?: ""
+            newLiveSearchResponse(channelname, LoadData(streamurl, channelname, posterurl, nation, key, keyid, userAgent, cookie, licenseUrl).toJson(), TvType.Live)
             {
                 this.posterUrl=posterurl
                 this.apiName
@@ -140,6 +142,7 @@ class Cricify(
         val keyid: String,
         val userAgent: String,
         val cookie: String,
+        val licenseUrl: String,
     )
     override suspend fun loadLinks(
         data: String,
@@ -160,8 +163,28 @@ class Cricify(
             
             val hasValidKeys = loadData.key.isNotEmpty() && loadData.keyid.isNotEmpty() && 
                               loadData.key.trim() != "null" && loadData.keyid.trim() != "null"
+            val hasLicenseUrl = loadData.licenseUrl.isNotEmpty() && loadData.licenseUrl.trim() != "null"
             
-            if (hasValidKeys) {
+            if (hasLicenseUrl) {
+                // Use license URL for DRM
+                callback.invoke(
+                    newDrmExtractorLink(
+                        this.name,
+                        this.name,
+                        loadData.url,
+                        INFER_TYPE,
+                        CLEARKEY_UUID
+                    )
+                    {
+                        this.quality=Qualities.Unknown.value
+                        if (headers.isNotEmpty()) {
+                                this.headers = headers
+                            }
+                        this.licenseUrl=loadData.licenseUrl.trim()
+                    }
+                )
+            } else if (hasValidKeys) {
+                // Use key/keyid for DRM
                 callback.invoke(
                     newDrmExtractorLink(
                         this.name,
@@ -285,6 +308,7 @@ data class PlaylistItem(
     val key: String? = null,
     val keyid: String? = null,
     val cookie: String? = null,
+    val licenseUrl: String? = null,
 )
 
 
@@ -399,16 +423,22 @@ class IptvPlaylistParser {
                             val item = playlistItems[currentIndex]
                             val licenseKey = line.removePrefix("#KODIPROP:inputstream.adaptive.license_key=").trim()
                             
-                            // Handle different license key formats
-                            val parts = when {
-                                licenseKey.contains(":") -> licenseKey.split(":")
-                                licenseKey.contains(",") -> licenseKey.split(",")
-                                else -> listOf(licenseKey)
+                            // Check if license key is a URL
+                            if (licenseKey.startsWith("http://") || licenseKey.startsWith("https://")) {
+                                // It's a license URL, store it directly
+                                playlistItems[currentIndex] = item.copy(licenseUrl = licenseKey)
+                            } else {
+                                // Handle different license key formats (hex encoded keys)
+                                val parts = when {
+                                    licenseKey.contains(":") -> licenseKey.split(":")
+                                    licenseKey.contains(",") -> licenseKey.split(",")
+                                    else -> listOf(licenseKey)
+                                }
+                                
+                                val keyid = decodeHex(parts.getOrNull(0))
+                                val key = decodeHex(parts.getOrNull(1))                      
+                                playlistItems[currentIndex] = item.copy(key = key, keyid = keyid)
                             }
-                            
-                            val keyid = decodeHex(parts.getOrNull(0))
-                            val key = decodeHex(parts.getOrNull(1))                      
-                            playlistItems[currentIndex] = item.copy(key = key, keyid = keyid)
                         }
                     }
                     !line.startsWith("#") -> {
@@ -419,6 +449,7 @@ class IptvPlaylistParser {
                             val referrer = line.getUrlParameter("referer")
                             val key = line.getUrlParameter("key")
                             val keyid = line.getUrlParameter("keyid")
+                            val licenseUrl = line.getUrlParameter("licenseUrl")
                             val urlHeaders = if (referrer != null) {
                                 item.headers + mapOf("referrer" to referrer)
                             } else item.headers
@@ -428,7 +459,8 @@ class IptvPlaylistParser {
                                     headers = item.headers + urlHeaders,
                                     userAgent = userAgent ?: item.userAgent,
                                     key = key ?: item.key,
-                                    keyid = keyid ?: item.keyid
+                                    keyid = keyid ?: item.keyid,
+                                    licenseUrl = licenseUrl ?: item.licenseUrl
                                 )
                         }
                     }
