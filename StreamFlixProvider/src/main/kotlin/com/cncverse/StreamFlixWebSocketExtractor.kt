@@ -53,8 +53,11 @@ class StreamFlixWebSocketExtractor {
                 val webSocket = client.newWebSocket(request, object : WebSocketListener() {
                     private var seasonsData = mutableMapOf<Int, Map<Int, EpisodeData>>()
                     private var receivedInitialData = false
+                    private var expectedResponses = 0
+                    private var responsesReceived = 0
                     private var currentSeason = 1
                     private var seasonsCompleted = 0
+                    private var messageBuffer = StringBuilder()
 
                     override fun onOpen(webSocket: WebSocket, response: Response) {
                         Log.d("StreamFlix", "WebSocket opened, requesting $totalSeasons seasons")
@@ -78,46 +81,67 @@ class StreamFlixWebSocketExtractor {
                     }
 
                     override fun onMessage(webSocket: WebSocket, text: String) {
-                        Log.d("StreamFlix", "Received: $text")
+                        Log.d("StreamFlix", "Received: ${text.take(100)}${if (text.length > 100) "..." else ""}")
+                        
+                        // Check if this is just a number (expected responses count)
+                        try {
+                            val number = text.trim().toInt()
+                            if (expectedResponses == 0) { // Only set if not already set
+                                expectedResponses = number
+                                Log.d("StreamFlix", "Expecting $expectedResponses data responses for season $currentSeason")
+                            }
+                            return
+                        } catch (e: NumberFormatException) {
+                            // Not a number, continue with JSON parsing
+                        }
+                        
+                        // Add to buffer and try to parse
+                        messageBuffer.append(text)
+                        val fullMessage = messageBuffer.toString()
                         
                         try {
-                            val jsonObject = JsonParser.parseString(text).asJsonObject
-                            
+                            val jsonObject = JsonParser.parseString(fullMessage).asJsonObject
+                            // Successfully parsed, clear buffer and process
+                            messageBuffer.clear()
+                            processJsonMessage(jsonObject, webSocket)
+                        } catch (e: Exception) {
+                            // JSON parsing failed, might be incomplete message
+                            if (fullMessage.length > 100000) { // Prevent infinite buffer growth
+                                Log.e("StreamFlix", "Message too large, clearing buffer")
+                                messageBuffer.clear()
+                                if (continuation.isActive) {
+                                    continuation.resume(seasonsData)
+                                    webSocket.close(1000, "Message too large")
+                                }
+                            }
+                            // Otherwise keep buffering until complete JSON arrives
+                        }
+                    }
+                    
+                    private fun processJsonMessage(jsonObject: JsonObject, webSocket: WebSocket) {
+                        try {
                             if (jsonObject.has("t") && jsonObject.get("t").asString == "d") {
                                 val data = jsonObject.getAsJsonObject("d")
-                                if (data.has("b") && data.getAsJsonObject("b").has("d")) {
-                                    val bObject = data.getAsJsonObject("b")
-                                    val episodes = bObject.getAsJsonObject("d")
-                                    
-                                    // Extract season number from path
-                                    val path = bObject.get("p")?.asString ?: ""
-                                    val seasonMatch = Regex("seasons/(\\d+)/episodes").find(path)
-                                    val seasonNumber = seasonMatch?.groupValues?.get(1)?.toIntOrNull() ?: 1
-                                    
-                                    val episodeMap = mutableMapOf<Int, EpisodeData>()
-                                    episodes.entrySet().forEach { entry ->
-                                        try {
-                                            val episodeData = gson.fromJson(entry.value, EpisodeData::class.java)
-                                            episodeMap[entry.key.toInt()] = episodeData
-                                            Log.d("StreamFlix", "Parsed episode ${entry.key}: ${episodeData.name}")
-                                        } catch (e: Exception) {
-                                            Log.e("StreamFlix", "Error parsing episode: ${e.message}")
-                                        }
-                                    }
-                                    
-                                    if (episodeMap.isNotEmpty()) {
-                                        seasonsData[seasonNumber] = episodeMap
+                                
+                                // Check for completion status message
+                                if (data.has("r") && data.has("b") && data.getAsJsonObject("b").has("s")) {
+                                    val status = data.getAsJsonObject("b").get("s").asString
+                                    if (status == "ok") {
+                                        Log.d("StreamFlix", "Received completion status for season $currentSeason")
                                         seasonsCompleted++
-                                        Log.d("StreamFlix", "Added ${episodeMap.size} episodes for season $seasonNumber ($seasonsCompleted/$totalSeasons)")
+                                        Log.d("StreamFlix", "Season $currentSeason complete via status ($seasonsCompleted/$totalSeasons)")
                                         
                                         // Request next season if available
                                         if (seasonsCompleted < totalSeasons) {
                                             currentSeason++
+                                            expectedResponses = 0  // Reset for next season
+                                            responsesReceived = 0   // Reset for next season
+                                            
                                             val requestData = WebSocketRequest(
                                                 t = "d",
                                                 d = WebSocketData(
                                                     a = "q",
-                                                    r = currentSeason + 10, // Use different request ID
+                                                    r = currentSeason,
                                                     b = WebSocketBody(
                                                         p = "Data/$movieKey/seasons/$currentSeason/episodes",
                                                         h = ""
@@ -135,12 +159,49 @@ class StreamFlixWebSocketExtractor {
                                                 webSocket.close(1000, "Done")
                                             }
                                         }
+                                        return
+                                    }
+                                }
+                                
+                                if (data.has("b") && data.getAsJsonObject("b").has("d")) {
+                                    val bObject = data.getAsJsonObject("b")
+                                    val episodes = bObject.getAsJsonObject("d")
+                                    
+                                    // Extract season number from path
+                                    val path = bObject.get("p")?.asString ?: ""
+                                    val seasonMatch = Regex("seasons/(\\d+)/episodes").find(path)
+                                    val seasonNumber = seasonMatch?.groupValues?.get(1)?.toIntOrNull() ?: currentSeason
+                                    
+                                    val episodeMap = mutableMapOf<Int, EpisodeData>()
+                                    episodes.entrySet().forEach { entry ->
+                                        try {
+                                            val episodeData = gson.fromJson(entry.value, EpisodeData::class.java)
+                                            episodeMap[entry.key.toInt()] = episodeData
+                                            Log.d("StreamFlix", "Parsed episode ${entry.key}: ${episodeData.name}")
+                                        } catch (e: Exception) {
+                                            Log.e("StreamFlix", "Error parsing episode: ${e.message}")
+                                        }
+                                    }
+                                    
+                                    if (episodeMap.isNotEmpty()) {
+                                        // Merge with existing episodes for this season
+                                        val existingEpisodes = seasonsData[seasonNumber] ?: mutableMapOf()
+                                        val mergedEpisodes = existingEpisodes.toMutableMap()
+                                        mergedEpisodes.putAll(episodeMap)
+                                        seasonsData[seasonNumber] = mergedEpisodes
+                                        responsesReceived++
+                                        Log.d("StreamFlix", "Added ${episodeMap.size} episodes for season $seasonNumber (${mergedEpisodes.size} total) ($responsesReceived/$expectedResponses)")
+                                        
+                                        // Don't automatically proceed here - wait for completion status
+                                        if (expectedResponses == 0) {
+                                            Log.d("StreamFlix", "No expected count yet, waiting for more data")
+                                        }
                                     }
                                 } else if (!receivedInitialData) {
                                     // First response might be different, try again
                                     receivedInitialData = true
                                 } else {
-                                    // Probably season 2 response or no more data
+                                    // No more data expected
                                     if (continuation.isActive) {
                                         continuation.resume(seasonsData)
                                         webSocket.close(1000, "Done")
@@ -148,7 +209,7 @@ class StreamFlixWebSocketExtractor {
                                 }
                             }
                         } catch (e: Exception) {
-                            Log.e("StreamFlix", "Error parsing WebSocket message: ${e.message}")
+                            Log.e("StreamFlix", "Error processing JSON message: ${e.message}")
                             if (continuation.isActive) {
                                 continuation.resume(seasonsData)
                                 webSocket.close(1000, "Error")
