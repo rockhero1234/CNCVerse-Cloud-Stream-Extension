@@ -12,10 +12,11 @@ import javax.crypto.spec.SecretKeySpec
 import java.security.MessageDigest
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.fasterxml.jackson.databind.JsonNode
 
-class MovieBoxProvider : MainAPI() {
+class MovieBoxProviderIN : MainAPI() {
     override var mainUrl = "https://api.inmoviebox.com"
-    override var name = "MovieBox"
+    override var name = "MovieBox IN"
     override val hasMainPage = true
     override var lang = "ta"
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
@@ -98,24 +99,14 @@ class MovieBoxProvider : MainAPI() {
         return "$timestamp|2|$signatureB64"
     }
 
-     override val mainPage = mainPageOf(
-        "1" to "Trending",
-        "2" to "For You",
-        "3" to "Hits",
-        "4" to "Blockbusters",
-        "5" to "Top Rated",
-    )
-
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val url = "$mainUrl/wefeed-mobile-bff/subject-api/list"
-        val pg = request.data?.toIntOrNull() ?: 1
-        val jsonBody = """{"page": $pg, "perPage": 12, "rate": ["0", "10"], "genre": "For You"}"""
+        val url = "$mainUrl/wefeed-mobile-bff/tab-operating?page=1&tabId=0&version="
 
-        // Use current timestamps instead of hardcoded ones
+        // Generate required security headers.
         val xClientToken = generateXClientToken()
-        val xTrSignature = generateXTrSignature("POST", "application/json", "application/json; charset=utf-8", url , jsonBody)
-        
-        var headers = mapOf(
+        val xTrSignature = generateXTrSignature("GET", "application/json", "application/json", url)
+
+        val headers = mapOf(
             "user-agent" to "com.community.mbox.in/50020042 (Linux; U; Android 16; en_IN; sdk_gphone64_x86_64; Build/BP22.250325.006; Cronet/133.0.6876.3)",
             "accept" to "application/json",
             "content-type" to "application/json",
@@ -123,51 +114,67 @@ class MovieBoxProvider : MainAPI() {
             "x-client-token" to xClientToken,
             "x-tr-signature" to xTrSignature,
             "x-client-info" to """{"package_name":"com.community.mbox.in","version_name":"3.0.03.0529.03","version_code":50020042,"os":"android","os_version":"16","device_id":"da2b99c821e6ea023e4be55b54d5f7d8","install_store":"ps","gaid":"d7578036d13336cc","brand":"google","model":"sdk_gphone64_x86_64","system_language":"en","net":"NETWORK_WIFI","region":"IN","timezone":"Asia/Calcutta","sp_code":""}""",
-            "x-client-status" to "0"
+            "x-client-status" to "0",
+            "x-play-mode" to "2" // Optional, if needed for specific API behavior
         )
-        
 
-            val requestBody = jsonBody.toRequestBody("application/json".toMediaType())
-            val response = app.post(
-                url,
-                headers = headers,
-                requestBody = requestBody
-            )
-            val responseCode = response.code
-            val responseBody = response.body?.string() ?: ""
-            // Use Jackson to parse the new API response structure
-            val data = try {
-                val mapper = jacksonObjectMapper()
-                val root = mapper.readTree(responseBody)
-                val items = root["data"]?.get("items") ?: return newHomePageResponse(emptyList())
-                items.mapNotNull { item ->
-                    val title = item["title"]?.asText() ?: return@mapNotNull null
-                    val id = item["subjectId"]?.asText() ?: return@mapNotNull null
-                    val coverImg = item["cover"]?.get("url")?.asText()
-                    val subjectType = item["subjectType"]?.asInt() ?: 1
-                    val type = when (subjectType) {
-                        1 -> TvType.Movie
-                        2 -> TvType.TvSeries
-                        else -> TvType.Movie
-                    }
-                    newMovieSearchResponse(
-                        name = title,
-                        url = id,
-                        type = type
-                    ) {
-                        posterUrl = coverImg
-                    }
+        val response = app.get(url, headers = headers)
+        val responseBody = response.body?.string() ?: ""
+
+        // Helper function to parse a 'subject' JSON object into your app's data model.
+        fun parseSubject(subjectJson: JsonNode?): SearchResponse? {
+            subjectJson ?: return null // Return null if the subject object is missing
+            val subjectId = subjectJson["subjectId"]?.asText() ?: return null
+            val title = subjectJson["title"]?.asText() ?: return null
+            val coverUrl = subjectJson["cover"]?.get("url")?.asText()
+            val subjectType = when (subjectJson["subjectType"]?.asInt()) {
+                1 -> TvType.Movie
+                2 -> TvType.TvSeries
+                else -> TvType.Movie // Default to Movie
+            }
+            return newMovieSearchResponse(title, subjectId, subjectType) {
+                this.posterUrl = coverUrl
+            }
+        }
+
+        // Use Jackson to parse the new, multi-section API response structure.
+        val homePageLists = try {
+            val mapper = jacksonObjectMapper()
+            val root = mapper.readTree(responseBody)
+            val sections = root["data"]?.get("items") ?: return newHomePageResponse(emptyList())
+
+            // Iterate through each section (e.g., Banners, Trending Now, etc.)
+            sections.mapNotNull { section ->
+                val title = section["title"]?.asText()?.let {
+                    if (it.equals("banner", ignoreCase = true)) "🔥Top Picks" else it
+                } ?: return@mapNotNull null
+                val type = section["type"]?.asText()
+
+                // Extract the list of media items based on the section type.
+                val mediaList = when (type) {
+                    "BANNER" -> section["banner"]?.get("banners")
+                        ?.mapNotNull { bannerItem -> parseSubject(bannerItem["subject"]) }
+                    "SUBJECTS_MOVIE" -> section["subjects"]
+                        ?.mapNotNull { subjectItem -> parseSubject(subjectItem) }
+                    "CUSTOM" -> section["customData"]?.get("items")
+                        ?.mapNotNull { customItem -> parseSubject(customItem["subject"]) }
+                    else -> null
                 }
-            } catch (e: Exception) {
-                null
-            } ?: emptyList()
 
-            return newHomePageResponse(
-                listOf(
-                    HomePageList(request.name, data)
-                )
-            )
+                // Only create a HomePageList if the section contains valid media items.
+                if (mediaList.isNullOrEmpty()) {
+                    null
+                } else {
+                    HomePageList(title, mediaList)
+                }
+            }
+        } catch (e: Exception) {
+            // In case of a parsing error, return an empty list.
+            e.printStackTrace()
+            emptyList()
+        }
 
+        return newHomePageResponse(homePageLists)
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
@@ -513,7 +520,6 @@ class MovieBoxProvider : MainAPI() {
                                         "x-tr-signature" to xTrSignature,      
                                     )
                                     val subResponse = app.get(subLink, headers = headers)
-                                        if (subResponse != null) {
                                             val subRoot = mapper.readTree(subResponse.toString())
                                             val extCaptions = subRoot["data"]?.get("extCaptions")
                                             if (extCaptions != null && extCaptions.isArray) {
@@ -532,7 +538,6 @@ class MovieBoxProvider : MainAPI() {
                                                 }
                                             }
                                         
-                                    }
 
                                     val subLink1 = "$mainUrl/wefeed-mobile-bff/subject-api/get-ext-captions?subjectId=$subjectId&resourceId=$id&episode=0"
                                     val xClientToken1 = generateXClientToken()

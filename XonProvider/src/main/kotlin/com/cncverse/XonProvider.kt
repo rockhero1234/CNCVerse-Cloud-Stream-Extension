@@ -274,6 +274,7 @@ class XonProvider : MainAPI() {
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+        refreshCache()
         val homePageList = mutableListOf<HomePageList>()
 
         when (request.data) {
@@ -325,6 +326,7 @@ class XonProvider : MainAPI() {
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
+        refreshCache()
         val searchResults = mutableListOf<SearchResponse>()
 
         cachedShows.filter {
@@ -383,6 +385,7 @@ class XonProvider : MainAPI() {
     }
 
     override suspend fun load(url: String): LoadResponse? {
+        refreshCache()
         val str = url.substringAfterLast("/")
         val parts = str.split(":")
         if (parts.size != 2) return null
@@ -462,6 +465,7 @@ class XonProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
+        refreshCache()
         val str = data.substringAfterLast("/")
         val parts = str.split(":")
         if (parts.size != 2) return false

@@ -1,4 +1,5 @@
-version = 2
+// use an integer for version numbers
+version = 1
 
 android {
     buildFeatures {
@@ -10,7 +11,7 @@ cloudstream {
     language = "ta"
     // All of these properties are optional, you can safely remove them
 
-    description = "Xon Provider for Anime and Cartoons - Tamil, Hindi, Telugu, English, Japanese"
+    description = "Multi Language Movies and Series Provider (IN)"
     authors = listOf("NivinCNC")
 
     /**
@@ -22,10 +23,9 @@ cloudstream {
      * */
     status = 1 // will be 3 if unspecified
     tvTypes = listOf(
-        "TvSeries",
         "Movie",
-        "Anime"
+        "TvSeries"
     )
 
-    iconUrl = "https://play-lh.googleusercontent.com/zVq_wAus2snoO-ggyI6IomlsCzfybAozQOGYpBrv71r1--rOYOYWsr_N7DWwVp9t7ro=s248-rw"
+    iconUrl = "https://github.com/NivinCNC/CNCVerse-Cloud-Stream-Extension/raw/refs/heads/master/MovieBoxProvider/icon.png"
 }
