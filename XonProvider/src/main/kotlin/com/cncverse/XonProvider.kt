@@ -45,7 +45,7 @@ class XonProvider : MainAPI() {
     private var cachedEpisodes: List<Episode> = emptyList()
     private var cachedMovies: List<Movie> = emptyList()
     private var lastCacheTime = 0L
-    private val cacheRefreshInterval = 60000L // 1 minute
+    private val cacheRefreshInterval = 24 * 60 * 60 * 1000L // 24 hours
 
     // Data classes for API responses
     data class FirebaseAuthResponse(
