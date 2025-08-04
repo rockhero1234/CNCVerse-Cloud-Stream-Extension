@@ -9,6 +9,7 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import kotlinx.coroutines.*
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.ConcurrentHashMap
+import com.lagradost.cloudstream3.utils.loadExtractor
 
 class XonProvider : MainAPI() {
     override var mainUrl = "http://myavens18052002.xyz/nzapis"
@@ -536,17 +537,7 @@ class XonProvider : MainAPI() {
 
                 // Add external player link if available
                 if (episode.link.isNotEmpty()) {
-                    callback(
-                        newExtractorLink(
-                            name,
-                            "$name - External",
-                            url = formatPosterUrl(episode.link),
-                            if (episode.link.contains("m3u8")) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO
-                        ) {
-                            this.referer = mainUrl
-                            this.quality = Qualities.P1080.value
-                        }
-                    )
+                   loadExtractor(episode.link, subtitleCallback, callback)
                 }
             }
 
@@ -612,17 +603,7 @@ class XonProvider : MainAPI() {
 
                 // Add external player link if available
                 if (movie.link.isNotEmpty()) {
-                    callback(
-                        newExtractorLink(
-                            name,
-                            "$name - External",
-                            url = formatPosterUrl(movie.link),
-                            if (movie.link.contains("m3u8")) ExtractorLinkType.M3U8 else ExtractorLinkType.VIDEO
-                        ) {
-                            this.referer = mainUrl
-                            this.quality = Qualities.P1080.value
-                        }
-                    )
+                    loadExtractor(movie.link, subtitleCallback, callback)
                 }
             }
         }
