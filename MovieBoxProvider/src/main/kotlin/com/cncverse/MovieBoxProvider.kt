@@ -109,7 +109,7 @@ class MovieBoxProvider : MainAPI() {
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val url = "$mainUrl/wefeed-mobile-bff/subject-api/list"
         val pg = request.data?.toIntOrNull() ?: 1
-        val jsonBody = """{"page": $pg, "perPage": 12, "rate": ["0", "10"], "genre": "For You"}"""
+        val jsonBody = """{"page": $pg, "perPage": 12, "rate": ["0", "10"], "genre": "All"}"""
 
         // Use current timestamps instead of hardcoded ones
         val xClientToken = generateXClientToken()
