@@ -113,12 +113,12 @@ class AniList(val plugin: UltimaPlugin) : MainAPI() {
                             false
                     )
             var homePageList =
-                    api.getPersonalLibrary().allLibraryLists.mapNotNull {
+                    api.getPersonalLibrary()?.allLibraryLists?.mapNotNull {
                         if (it.items.isEmpty()) return@mapNotNull null
                         val libraryName =
                                 it.name.asString(plugin.activity ?: return@mapNotNull null)
                         HomePageList("${request.name}: $libraryName", it.items)
-                    }
+                    } ?: emptyList()
             return newHomePageResponse(homePageList, false)
         } else {
             // Other new sections will be generated if toSearchResponseList() is

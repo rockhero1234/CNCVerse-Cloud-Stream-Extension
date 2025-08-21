@@ -100,12 +100,12 @@ class MyAnimeList(val plugin: UltimaPlugin) : MainAPI() {
                             false
                     )
             var homePageList =
-                    api.getPersonalLibrary().allLibraryLists.mapNotNull {
+                    api.getPersonalLibrary()?.allLibraryLists?.mapNotNull {
                         if (it.items.isEmpty()) return@mapNotNull null
                         val libraryName =
                                 it.name.asString(plugin.activity ?: return@mapNotNull null)
                         HomePageList("${request.name}: $libraryName", it.items)
-                    }
+                    } ?: emptyList()
             return newHomePageResponse(homePageList, false)
         } else {
             val res = malAPICall("${request.data}${(page - 1) * mediaLimit}")
