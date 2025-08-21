@@ -3,7 +3,7 @@ package com.hdo.providers
 import android.util.Log
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
-import com.lagradost.cloudstream3.base64Decode
+import com.lagradost.cloudstream3.base64DecodeArray
 import com.fasterxml.jackson.annotation.JsonProperty
 
 class VidsrcProProvider {
@@ -51,7 +51,7 @@ class VidsrcProProvider {
                 }
                 
                 // Decode the hash - exact same as JavaScript libs.string_atob()
-                val hashDecodeJson = String(base64Decode(hashEncode))
+                val hashDecodeJson = String(base64DecodeArray(hashEncode))
                 val hashDecode = AppUtils.parseJson<HashData>(hashDecodeJson)
                 
                 Log.d("VidsrcProProvider", "Hash Decode: $hashDecode")
@@ -63,14 +63,14 @@ class VidsrcProProvider {
                 }
                 
                 // First decode: base64 decode, split by '.', reverse each part - exact same logic
-                val firstDecodeBase64 = String(base64Decode(mEncrypt))
+                val firstDecodeBase64 = String(base64DecodeArray(mEncrypt))
                 val firstDecode = firstDecodeBase64.split(".").map { item ->
                     item.reversed() // split("").reverse().join("") in JS = reversed() in Kotlin
                 }
                 
                 // Second decode: join, reverse, base64 decode, parse JSON - exact same logic
                 val secondDecodeBase64 = firstDecode.joinToString("").reversed()
-                val secondDecodeJson = String(base64Decode(secondDecodeBase64))
+                val secondDecodeJson = String(base64DecodeArray(secondDecodeBase64))
                 val secondDecode = AppUtils.parseJson<List<SourceItem>>(secondDecodeJson)
                 
                 Log.d("VidsrcProProvider", "Second Decode: $secondDecode")

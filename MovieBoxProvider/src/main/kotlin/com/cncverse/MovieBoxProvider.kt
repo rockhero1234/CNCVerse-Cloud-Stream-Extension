@@ -3,7 +3,7 @@ package com.cncverse
 import android.net.Uri
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
-import com.lagradost.cloudstream3.base64Decode
+import com.lagradost.cloudstream3.base64DecodeArray
 import com.lagradost.cloudstream3.base64Encode
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
@@ -89,7 +89,7 @@ class MovieBoxProvider : MainAPI() {
         val timestamp = hardcodedTimestamp ?: System.currentTimeMillis()
         val canonical = buildCanonicalString(method, accept, contentType, url, body, timestamp)
         val secret = if (useAltKey) secretKeyAlt else secretKeyDefault
-        val secretBytes = base64Decode(secret)
+        val secretBytes = base64DecodeArray(secret)
 
         val mac = Mac.getInstance("HmacMD5")
         mac.init(SecretKeySpec(secretBytes, "HmacMD5"))

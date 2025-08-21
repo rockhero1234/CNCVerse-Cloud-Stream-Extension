@@ -1,6 +1,6 @@
 package com.cncverse
 
-import com.lagradost.cloudstream3.base64Decode
+import com.lagradost.cloudstream3.base64DecodeArray
 import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
@@ -31,7 +31,7 @@ object CryptoUtils {
             val ivParameterSpec = IvParameterSpec(iv)
             cipher.init(Cipher.DECRYPT_MODE, secretKeySpec, ivParameterSpec)
             
-            val decoded = base64Decode(cleanBase64)
+            val decoded = base64DecodeArray(cleanBase64)
             
             val decrypted = cipher.doFinal(decoded)
             

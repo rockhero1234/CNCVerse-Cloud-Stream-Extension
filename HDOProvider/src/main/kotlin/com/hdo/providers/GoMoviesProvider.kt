@@ -3,7 +3,7 @@ package com.hdo.providers
 import android.util.Log
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
-import com.lagradost.cloudstream3.base64Decode
+import com.lagradost.cloudstream3.base64DecodeArray
 import com.fasterxml.jackson.annotation.JsonProperty
 import org.jsoup.Jsoup
 
@@ -222,7 +222,7 @@ class GoMoviesProvider {
         
         private fun xorDecrypt(encrypted: String, key: String): String {
             return try {
-                val decoded = base64Decode(encrypted)
+                val decoded = base64DecodeArray(encrypted)
                 val result = StringBuilder()
                 
                 for (i in decoded.indices) {
