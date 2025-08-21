@@ -3,10 +3,11 @@ package com.cncverse
 import android.net.Uri
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
+import com.lagradost.cloudstream3.base64Decode
+import com.lagradost.cloudstream3.base64Encode
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.util.Base64
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import java.security.MessageDigest
@@ -89,12 +90,12 @@ class MovieBoxProviderIN : MainAPI() {
         val timestamp = hardcodedTimestamp ?: System.currentTimeMillis()
         val canonical = buildCanonicalString(method, accept, contentType, url, body, timestamp)
         val secret = if (useAltKey) secretKeyAlt else secretKeyDefault
-        val secretBytes = Base64.getDecoder().decode(secret)
+        val secretBytes = base64Decode(secret)
 
         val mac = Mac.getInstance("HmacMD5")
         mac.init(SecretKeySpec(secretBytes, "HmacMD5"))
         val signature = mac.doFinal(canonical.toByteArray(Charsets.UTF_8))
-        val signatureB64 = Base64.getEncoder().encodeToString(signature)
+        val signatureB64 = base64Encode(signature)
 
         return "$timestamp|2|$signatureB64"
     }

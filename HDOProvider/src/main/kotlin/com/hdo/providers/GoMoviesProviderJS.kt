@@ -1,9 +1,9 @@
 package com.hdo.providers
 
 import android.util.Log
-import android.util.Base64
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
+import com.lagradost.cloudstream3.base64Decode
 import com.fasterxml.jackson.annotation.JsonProperty
 import org.jsoup.Jsoup
 import java.util.*
@@ -217,7 +217,7 @@ class GoMoviesProviderJS {
                         
                         // Decode and decrypt - exact same logic as JavaScript
                         val atobIframe = try {
-                            Base64.decode(parseEmbed, Base64.DEFAULT).toString(Charsets.UTF_8)
+                            String(base64Decode(parseEmbed), Charsets.UTF_8)
                         } catch (e: Exception) {
                             Log.w("GoMoviesProviderJS", "Error decoding base64: ${e.message}")
                             continue

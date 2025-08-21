@@ -2,8 +2,8 @@ package com.cncverse
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
+import com.lagradost.cloudstream3.base64Decode
 import okhttp3.*
-import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
@@ -269,7 +269,7 @@ class CastleTvProvider : MainAPI() {
     }
 
     private fun deriveKey(apiKeyB64: String): ByteArray {
-        val apiKeyBytes = Base64.getDecoder().decode(apiKeyB64)
+        val apiKeyBytes = base64Decode(apiKeyB64)
         val keyMaterial = apiKeyBytes + keySupFixx.toByteArray(StandardCharsets.US_ASCII)
         
         return when {
@@ -284,7 +284,7 @@ class CastleTvProvider : MainAPI() {
             val aesKey = deriveKey(apiKeyB64)
             val iv = aesKey // Use the same key as IV as confirmed by analysis
             
-            val encryptedData = Base64.getDecoder().decode(encryptedB64)
+            val encryptedData = base64Decode(encryptedB64)
             
             val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
             val secretKey = SecretKeySpec(aesKey, "AES")

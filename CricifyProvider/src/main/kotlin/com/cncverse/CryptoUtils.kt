@@ -1,6 +1,6 @@
 package com.cncverse
 
-import android.util.Base64
+import com.lagradost.cloudstream3.base64Decode
 import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
@@ -31,15 +31,7 @@ object CryptoUtils {
             val ivParameterSpec = IvParameterSpec(iv)
             cipher.init(Cipher.DECRYPT_MODE, secretKeySpec, ivParameterSpec)
             
-            val decoded = try {
-                Base64.decode(cleanBase64, Base64.NO_WRAP)
-            } catch (e: IllegalArgumentException) {
-                try {
-                    Base64.decode(cleanBase64, Base64.DEFAULT)
-                } catch (e2: IllegalArgumentException) {
-                    Base64.decode(cleanBase64, Base64.URL_SAFE)
-                }
-            }
+            val decoded = base64Decode(cleanBase64)
             
             val decrypted = cipher.doFinal(decoded)
             

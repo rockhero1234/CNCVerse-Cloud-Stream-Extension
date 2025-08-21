@@ -3,9 +3,9 @@ package com.hdo.providers
 import android.util.Log
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
+import com.lagradost.cloudstream3.base64Decode
 import com.fasterxml.jackson.annotation.JsonProperty
 import org.jsoup.Jsoup
-import android.util.Base64
 
 class GoMoviesProvider {
     
@@ -222,7 +222,7 @@ class GoMoviesProvider {
         
         private fun xorDecrypt(encrypted: String, key: String): String {
             return try {
-                val decoded = Base64.decode(encrypted, Base64.DEFAULT)
+                val decoded = base64Decode(encrypted)
                 val result = StringBuilder()
                 
                 for (i in decoded.indices) {

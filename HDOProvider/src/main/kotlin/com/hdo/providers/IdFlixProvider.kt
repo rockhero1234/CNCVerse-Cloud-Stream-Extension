@@ -3,11 +3,11 @@ package com.hdo.providers
 import android.util.Log
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
+import com.lagradost.cloudstream3.base64Decode
 import com.fasterxml.jackson.annotation.JsonProperty
 import org.jsoup.Jsoup
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
-import android.util.Base64
 
 class IdFlixProvider {
     
@@ -161,8 +161,8 @@ class IdFlixProvider {
                 val encryptedJson = AppUtils.parseJson<EncryptedJson>(encryptedData)
                     ?: return ""
                 
-                val cipherText = Base64.decode(encryptedJson.ct, Base64.DEFAULT)
-                val salt = Base64.decode(encryptedJson.s, Base64.DEFAULT)
+                val cipherText = base64Decode(encryptedJson.ct)
+                val salt = base64Decode(encryptedJson.s)
                 
                 // Derive key and IV from password and salt
                 val keyIv = deriveKeyAndIV(key, salt)

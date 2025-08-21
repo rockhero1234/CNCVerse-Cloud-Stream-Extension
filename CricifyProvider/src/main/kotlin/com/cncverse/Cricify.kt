@@ -16,7 +16,7 @@ import okhttp3.Request
 import okhttp3.Response
 import java.io.InputStream
 import java.util.UUID
-import android.util.Base64
+import com.lagradost.cloudstream3.base64Encode
 import java.nio.charset.StandardCharsets
 
 class HeaderReplacementInterceptor(private val customHeaders: Map<String, String>) : Interceptor {
@@ -342,8 +342,8 @@ class IptvPlaylistParser {
                 byteArray[i / 2] = ((firstDigit shl 4) + secondDigit).toByte()
             }
             //byteArrayToBase64
-            val base64ByteArray = Base64.encode(byteArray, Base64.NO_PADDING)
-            String(base64ByteArray, StandardCharsets.UTF_8).trim()
+            val base64ByteArray = base64Encode(byteArray)
+            base64ByteArray.trim()
         } catch (e: Exception) {
             ""
         }
