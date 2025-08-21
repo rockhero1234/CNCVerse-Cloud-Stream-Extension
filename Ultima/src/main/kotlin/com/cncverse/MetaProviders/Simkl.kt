@@ -24,6 +24,7 @@ import com.lagradost.cloudstream3.newMovieLoadResponse
 import com.lagradost.cloudstream3.newMovieSearchResponse
 import com.lagradost.cloudstream3.newTvSeriesLoadResponse
 import com.lagradost.cloudstream3.syncproviders.AccountManager
+import com.lagradost.cloudstream3.syncproviders.SyncAPI
 import com.lagradost.cloudstream3.syncproviders.SyncIdName
 import com.lagradost.cloudstream3.syncproviders.providers.SimklApi.Companion.MediaObject
 import com.lagradost.cloudstream3.SimklSyncServices
@@ -53,6 +54,12 @@ class Simkl(val plugin: UltimaPlugin) : MainAPI() {
         val poster = getPosterUrl(poster ?: "")
         return newMovieSearchResponse(title, "$mainUrl/shows/${ids?.simkl}") {
             this.posterUrl = poster
+        }
+    }
+
+    private fun SyncAPI.SyncSearchResult.toSearchResponse(): SearchResponse {
+        return newMovieSearchResponse(name, url) {
+            this.posterUrl = posterUrl
         }
     }
 
@@ -150,7 +157,7 @@ class Simkl(val plugin: UltimaPlugin) : MainAPI() {
             )
 
     override suspend fun search(query: String): List<SearchResponse>? {
-        return api.search(query)
+        return api.search(query)?.map { it.toSearchResponse() }
     }
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse? {
