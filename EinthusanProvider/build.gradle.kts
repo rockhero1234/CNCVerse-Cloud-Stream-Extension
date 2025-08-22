@@ -1,5 +1,5 @@
 // use an integer for version numbers
-version = 4
+version = 1
 
 android {
     buildFeatures {
@@ -7,10 +7,11 @@ android {
     }
 }
 
+
 cloudstream {
     // All of these properties are optional, you can safely remove them
 
-    description = "Tamil Tv Serial/Shows Provider"
+    description = "Indian Multi-language HD Provider"
     language = "ta"
     authors = listOf("NivinCNC")
 
@@ -27,7 +28,7 @@ cloudstream {
     // You can find a list of avaliable types here:
     // https://recloudstream.github.io/cloudstream/html/app/com.lagradost.cloudstream3/-tv-type/index.html
     tvTypes = listOf(
-        "TvSeries",
+        "Movie"
     )
-    iconUrl = "https://github.com/NivinCNC/CNCVerse-Cloud-Stream-Extension/raw/refs/heads/master/TamilDhoolProvider/icon.png"
+    iconUrl = "https://raw.githubusercontent.com/NivinCNC/CNCVerse-Cloud-Stream-Extension/master/EinthusanProvider/icon.png"
 }
