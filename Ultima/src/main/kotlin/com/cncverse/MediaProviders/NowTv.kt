@@ -39,13 +39,13 @@ class NowTvMediaProvider : MediaProvider() {
             if (!app.get(mediaUrl, referer = referer).isSuccessful) return
         }
         UltimaMediaProvidersUtils.commonLinkLoader(
-                name,
-                ServerName.Custom,
-                mediaUrl,
-                url,
-                null,
-                subtitleCallback,
-                callback
+            name,
+            ServerName.Custom,
+            mediaUrl,
+            url,
+            null,
+            subtitleCallback,
+            callback
         )
     }
 

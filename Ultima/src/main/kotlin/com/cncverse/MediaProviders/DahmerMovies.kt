@@ -1,5 +1,6 @@
 package com.cncverse
 
+import com.lagradost.api.Log
 import com.cncverse.UltimaMediaProvidersUtils.ServerName
 import com.cncverse.UltimaMediaProvidersUtils.encodeUrl
 import com.cncverse.UltimaMediaProvidersUtils.getEpisodeSlug
@@ -9,11 +10,12 @@ import com.cncverse.UltimaUtils.Category
 import com.cncverse.UltimaUtils.LinkData
 import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.app
+import com.lagradost.cloudstream3.utils.AppUtils.toJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
 
 class DahmerMoviesMediaProvider : MediaProvider() {
     override val name = "DahmerMovies"
-    override val domain = "https://worker-mute-fog-66ae.ihrqljobdq.workers.dev"
+    override val domain = "https://a.111477.xyz"
     override val categories = listOf(Category.MEDIA)
 
     override suspend fun loadContent(
@@ -22,13 +24,14 @@ class DahmerMoviesMediaProvider : MediaProvider() {
             subtitleCallback: (SubtitleFile) -> Unit,
             callback: (ExtractorLink) -> Unit
     ) {
+        val year= app.get("https://cinemeta-live.strem.io/meta/movie/${data.imdbId}.json").parsedSafe<MetaData>()?.meta?.releaseInfo
         val mediaUrl =
                 if (data.season == null) {
-                    "$url/movies/${data.title?.replace(":", "")} (${data.year})/"
+                    "$url/movies/${data.title?.replace(":", "")} (${year})/"
                 } else {
                     "$url/tvs/${data.title?.replace(":", " -")}/Season ${data.season}/"
                 }
-
+        Log.d("Phisher",data.toJson())
         val request = app.get(mediaUrl, timeout = 60L)
         if (!request.isSuccessful) return
         val paths =
@@ -51,16 +54,17 @@ class DahmerMoviesMediaProvider : MediaProvider() {
         paths.map {
             val quality = getIndexQuality(it.first)
             val tag = getIndexQualityTags(it.first)
+            val href=if (it.second.contains(mediaUrl)) it.second else (mediaUrl + it.second)
             UltimaMediaProvidersUtils.commonLinkLoader(
-                    name,
-                    ServerName.Custom,
-                    (mediaUrl + it.second).encodeUrl(),
-                    null,
-                    null,
-                    subtitleCallback,
-                    callback,
-                    quality,
-                    tag = tag
+                name,
+                ServerName.Custom,
+                href.encodeUrl(),
+                null,
+                null,
+                subtitleCallback,
+                callback,
+                quality,
+                tag = tag
             )
         }
     }

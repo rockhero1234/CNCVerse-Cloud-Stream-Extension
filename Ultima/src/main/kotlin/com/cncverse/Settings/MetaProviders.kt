@@ -22,8 +22,8 @@ import android.widget.TextView
 import androidx.annotation.RequiresApi
 import com.cncverse.UltimaUtils.MediaProviderState
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.CommonActivity.showToast
+import com.cncverse.BuildConfig
 import kotlin.collections.toList
 
 private const val ARG_PARAM1 = "param1"

@@ -1,5 +1,7 @@
 package com.cncverse
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import com.cncverse.UltimaMediaProvidersUtils.ServerName
 import com.cncverse.UltimaMediaProvidersUtils.commonLinkLoader
 import com.cncverse.UltimaUtils.Category
@@ -11,12 +13,13 @@ import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
+
 class HiAnimeMediaProvider : MediaProvider() {
     override val name = "HiAnime"
-    override val domain = "https://hianime.to"
+    override val domain = "https://hianimez.is"
     override val categories = listOf(Category.ANIME)
-    private val apiUrl = "https://ajax.gogocdn.net"
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override suspend fun loadContent(
             url: String,
             data: LinkData,
@@ -47,7 +50,7 @@ class HiAnimeMediaProvider : MediaProvider() {
         servers.amap { server ->
             val serverResUrl = "$url/ajax/v2/episode/sources?id=${server.second}"
             val serverRes = app.get(serverResUrl).parsed<ServerData>()
-            if (serverRes.type.equals("error")) return@amap
+            if (serverRes.type == "error") return@amap
             val serverName =
                     when (serverRes.server) {
                         1 -> ServerName.Megacloud
@@ -55,13 +58,13 @@ class HiAnimeMediaProvider : MediaProvider() {
                         else -> return@amap
                     }
             commonLinkLoader(
-                    name,
-                    serverName,
-                    serverRes.link,
-                    null,
-                    server.first,
-                    subtitleCallback,
-                    callback
+                name,
+                serverName,
+                serverRes.link,
+                null,
+                server.first,
+                subtitleCallback,
+                callback
             )
         }
     }

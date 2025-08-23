@@ -6,6 +6,7 @@ import com.cncverse.UltimaUtils.LinkData
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.amap
+import com.lagradost.cloudstream3.apmap
 import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
@@ -15,7 +16,6 @@ class AllMovielandMediaProvider : MediaProvider() {
     override val name = "AllMovieland"
     override val domain = "https://allmovieland.fun"
     override val categories = listOf(Category.MEDIA)
-    private val host = "https://zativertz295huk.com"
 
     override suspend fun loadContent(
             url: String,
@@ -23,20 +23,27 @@ class AllMovielandMediaProvider : MediaProvider() {
             subtitleCallback: (SubtitleFile) -> Unit,
             callback: (ExtractorLink) -> Unit
     ) {
-        val referer = "$url/"
-        val res =
-                app.get("$host/play/${data.imdbId}", referer = referer)
-                        .document
-                        .selectFirst("script:containsData(playlist)")
-                        ?.data()
-                        ?.substringAfter("{")
-                        ?.substringBefore(";")
-                        ?.substringBefore(")")
-        val json = tryParseJson<AllMovielandPlaylist>("{${res ?: return}")
-        val headers = mapOf("X-CSRF-TOKEN" to "${json?.key}")
+        val playerScript = app.get("https://allmovieland.link/player.js?v=60%20128").toString()
+        val domainRegex = Regex("const AwsIndStreamDomain.*'(.*)';")
+        val host = domainRegex.find(playerScript)?.groupValues?.getOrNull(1) ?: return
+
+        val resData = app.get(
+            "$host/play/${data.imdbId}",
+            referer = "$url/"
+        ).document.selectFirst("script:containsData(playlist)")?.data()
+            ?.substringAfter("{")?.substringBefore(";")?.substringBefore(")") ?: return
+
+        val json = tryParseJson<AllMovielandPlaylist>("{$resData}") ?: return
+        val headers = mapOf(("X-CSRF-TOKEN" to "${json.key}"))
+
+        val serverJson = app.get(
+            fixUrl(json.file ?: return, host),
+            headers = headers,
+            referer = "$url/"
+        ).text.replace(Regex(""",\\s*\\/"""), "")
 
         val serverRes =
-                app.get(fixUrl(json?.file ?: return, host), headers = headers, referer = referer)
+                app.get(fixUrl(json.file, host), headers = headers, referer = url)
                         .text
                         .replace(Regex(""",\s*\[]"""), "")
         val servers =
@@ -55,13 +62,13 @@ class AllMovielandMediaProvider : MediaProvider() {
 
         servers?.amap { (server, lang) ->
             val path =
-                    app.post(
-                                    "${host}/playlist/${server ?: return@amap}.txt",
-                                    headers = headers,
-                                    referer = referer
-                            )
-                            .text
-            M3u8Helper.generateM3u8("Allmovieland [$lang]", path, referer).forEach(callback)
+                app.post(
+                    "${host}/playlist/${server ?: return@amap}.txt",
+                    headers = headers,
+                    referer = url
+                )
+                    .text
+            M3u8Helper.generateM3u8("Allmovieland [$lang]", path, url).forEach(callback)
         }
     }
 

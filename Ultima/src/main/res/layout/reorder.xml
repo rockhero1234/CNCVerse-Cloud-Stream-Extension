@@ -3,7 +3,9 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:layoutDirection="ltr">
+    android:layoutDirection="ltr"
+    android:focusable="true"
+    android:focusableInTouchMode="true">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -14,57 +16,52 @@
         android:paddingBottom="20dp"
         tools:background="@color/cardview_dark_background">
 
+        <!-- Header Row -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_rowWeight="1"
+                android:layout_weight="1"
                 android:layout_marginTop="20dp"
                 android:layout_marginBottom="5dp"
                 android:text="Reorder Sections"
                 android:textSize="20sp"
                 android:textStyle="bold" />
 
-            <LinearLayout
-                android:layout_width="match_parent"
+            <ImageView
+                android:id="@+id/save"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:gravity="right">
-
-                <ImageView
-                    android:id="@+id/save"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
-                    android:layout_marginBottom="5dp"
-                    android:padding="5dp"
-                    android:focusable="true" />
-
-            </LinearLayout>
-
+                android:layout_marginTop="20dp"
+                android:layout_marginBottom="5dp"
+                android:padding="5dp"
+                android:focusable="true"
+                android:focusableInTouchMode="true" />
         </LinearLayout>
 
+        <!-- Divider -->
         <ImageView
             android:src="@android:drawable/divider_horizontal_dark"
-            android:layout_width="fill_parent"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:scaleType="fitXY"
-            android:paddingLeft="2dp"
-            android:paddingRight="2dp"
-            android:layout_marginBottom="10dp"
-            android:layout_marginTop="10dp" />
+            android:layout_marginVertical="10dp"
+            android:paddingHorizontal="2dp" />
 
+        <!-- Section List -->
         <LinearLayout
             android:id="@+id/section_list"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingBottom="10dp">
-        </LinearLayout>
+            android:paddingBottom="10dp" />
 
+        <!-- No Section Warning -->
         <TextView
             android:id="@+id/no_section_warning"
             android:layout_width="match_parent"

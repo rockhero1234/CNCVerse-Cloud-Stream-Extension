@@ -5,11 +5,11 @@ import com.cncverse.UltimaUtils.LinkData
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.app
-import com.lagradost.cloudstream3.utils.*
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.INFER_TYPE
 import com.lagradost.cloudstream3.utils.Qualities
+import com.lagradost.cloudstream3.utils.newExtractorLink
 import org.mozilla.javascript.Scriptable
 
 class MultiEmbededAPIProvider : MediaProvider() {
@@ -50,15 +50,15 @@ class MultiEmbededAPIProvider : MediaProvider() {
                             .substringAfter("file\":\"")
                             .substringBefore("\",")
             callback.invoke(
-                    newExtractorLink(
-                            source = "MultiEmbeded API",
-                            name = "MultiEmbeded API",
-                            url = file,
-                            type = INFER_TYPE
-                    ) {
-                        this.headers = mapOf("Referer" to "")
-                        this.quality = Qualities.Unknown.value
-                    }
+                newExtractorLink(
+                    "MultiEmbeded API",
+                    "MultiEmbeded API",
+                    file,
+                    INFER_TYPE
+                )
+                {
+                    this.quality = Qualities.Unknown.value
+                }
             )
         }
     }

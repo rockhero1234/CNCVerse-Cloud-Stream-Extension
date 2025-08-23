@@ -48,15 +48,15 @@ class NoverseMediaProvider : MediaProvider() {
             // if (quality.equals("Subtitles")) return@mapNotNull
             val tag = quality?.split(".")?.getOrNull(1)
             UltimaMediaProvidersUtils.commonLinkLoader(
-                    name,
-                    ServerName.Custom,
-                    link,
-                    null,
-                    null,
-                    subtitleCallback,
-                    callback,
-                    getQualityFromName("${quality?.substringBefore("p")?.trim()}p"),
-                    tag = tag,
+                name,
+                ServerName.Custom,
+                link,
+                null,
+                null,
+                subtitleCallback,
+                callback,
+                getQualityFromName("${quality?.substringBefore("p")?.trim()}p"),
+                tag = tag,
             )
         }
     }

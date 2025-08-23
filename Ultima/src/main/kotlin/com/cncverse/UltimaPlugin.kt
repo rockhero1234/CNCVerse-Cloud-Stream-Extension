@@ -14,13 +14,7 @@ class UltimaPlugin : Plugin() {
 
     companion object {
         inline fun Handler.postFunction(crossinline function: () -> Unit) {
-            this.post(
-                    object : Runnable {
-                        override fun run() {
-                            function()
-                        }
-                    }
-            )
+            this.post { function() }
         }
     }
 
@@ -43,8 +37,8 @@ class UltimaPlugin : Plugin() {
         openSettings = {
             val frag = UltimaSettings(this)
             frag.show(
-                    activity?.supportFragmentManager ?: throw Exception("Unable to open settings"),
-                    ""
+                activity?.supportFragmentManager ?: throw Exception("Unable to open settings"),
+                ""
             )
         }
     }
@@ -52,7 +46,7 @@ class UltimaPlugin : Plugin() {
     fun reload(context: Context?) {
         try {
             val pluginData =
-                    PluginManager.getPluginsOnline().find { it.internalName.contains("Ultima") }
+                PluginManager.getPluginsOnline().find { it.internalName.contains("Ultima") }
             if (pluginData == null) {
                 // Use reflection to call the internal function if it exists
                 try {

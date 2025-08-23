@@ -4,9 +4,8 @@ import com.cncverse.UltimaMediaProvidersUtils.invokeExtractors
 import com.cncverse.UltimaUtils.Category
 import com.cncverse.UltimaUtils.LinkData
 import com.fasterxml.jackson.annotation.JsonProperty
-import com.lagradost.cloudstream3.*
+import com.lagradost.cloudstream3.AcraApplication
 import com.lagradost.cloudstream3.DubStatus
-import com.lagradost.cloudstream3.Episode
 import com.lagradost.cloudstream3.ErrorLoadingException
 import com.lagradost.cloudstream3.HomePageList
 import com.lagradost.cloudstream3.HomePageResponse
@@ -23,15 +22,17 @@ import com.lagradost.cloudstream3.mainPageOf
 import com.lagradost.cloudstream3.mapper
 import com.lagradost.cloudstream3.newAnimeLoadResponse
 import com.lagradost.cloudstream3.newAnimeSearchResponse
+import com.lagradost.cloudstream3.newEpisode
 import com.lagradost.cloudstream3.newHomePageResponse
-import com.lagradost.cloudstream3.syncproviders.AccountManager
+import com.lagradost.cloudstream3.syncproviders.AccountManager.Companion.malApi
 import com.lagradost.cloudstream3.syncproviders.SyncIdName
+import com.lagradost.cloudstream3.syncproviders.providers.MALApi
 import com.lagradost.cloudstream3.syncproviders.providers.MALApi.MalAnime
 import com.lagradost.cloudstream3.syncproviders.providers.MALApi.Recommendations
 import com.lagradost.cloudstream3.utils.AppUtils
 import com.lagradost.cloudstream3.utils.ExtractorLink
 
-class MyAnimeList(val plugin: UltimaPlugin) : MainAPI() {
+open class MyAnimeList(val plugin: UltimaPlugin) : MainAPI() {
     override var name = "MyAnimeList"
     override var mainUrl = "https://myanimelist.net"
     override var supportedTypes = setOf(TvType.Anime, TvType.AnimeMovie, TvType.OVA)
@@ -39,31 +40,33 @@ class MyAnimeList(val plugin: UltimaPlugin) : MainAPI() {
     override val supportedSyncNames = setOf(SyncIdName.MyAnimeList)
     override val hasMainPage = true
     override val hasQuickSearch = false
-    private val api = AccountManager.malApi
+    private val api = malApi
     private val apiUrl = "https://api.myanimelist.net/v2"
-    private final val mediaLimit = 20
-    private val auth = BuildConfig.MAL_API
+    private val mediaLimit = 20
 
-    protected fun Any.toStringData(): String {
+
+    private fun Any.toStringData(): String {
         return mapper.writeValueAsString(this)
     }
 
     private suspend fun malAPICall(query: String): MalApiResponse {
+        //val accountId = "${malApi.idPrefix}_account_${malApi.accountIndex}"
+        //val authToken = AcraApplication.getKey<String>(accountId, MALApi.MAL_TOKEN_KEY)
         val res =
-                app.get(query, headers = mapOf("Authorization" to "Bearer $auth"))
+                app.get(query, headers = mapOf("Authorization" to "Bearer $"))
                         .parsedSafe<MalApiResponse>()
                         ?: throw Exception("Unable to fetch content from API")
         return res
     }
 
-    private suspend fun MalApiResponse.MalApiData.toSearchResponse(): SearchResponse {
+    private fun MalApiResponse.MalApiData.toSearchResponse(): SearchResponse {
         val url = "$mainUrl/${this.node.id}"
         val posterUrl = this.node.picture.large
         val res = newAnimeSearchResponse(this.node.title, url) { this.posterUrl = posterUrl }
         return res
     }
 
-    private suspend fun Recommendations.toSearchResponse(): SearchResponse {
+    private fun Recommendations.toSearchResponse(): SearchResponse {
         val node = this.node ?: throw Exception("Unable to parse Recommendation")
         val url = "$mainUrl/${node.id}"
         val posterUrl = node.mainPicture?.large
@@ -99,13 +102,13 @@ class MyAnimeList(val plugin: UltimaPlugin) : MainAPI() {
                             emptyList<SearchResponse>(),
                             false
                     )
-            var homePageList =
-                    api.getPersonalLibrary()?.allLibraryLists?.mapNotNull {
+            val homePageList =
+                    api.getPersonalLibrary()!!.allLibraryLists.mapNotNull {
                         if (it.items.isEmpty()) return@mapNotNull null
                         val libraryName =
                                 it.name.asString(plugin.activity ?: return@mapNotNull null)
                         HomePageList("${request.name}: $libraryName", it.items)
-                    } ?: emptyList()
+                    }
             return newHomePageResponse(homePageList, false)
         } else {
             val res = malAPICall("${request.data}${(page - 1) * mediaLimit}")
@@ -121,7 +124,7 @@ class MyAnimeList(val plugin: UltimaPlugin) : MainAPI() {
         val data =
                 app.get(
                                 "$apiUrl/anime/$id?fields=id,title,synopsis,main_picture,start_season,num_episodes,recommendations,genres",
-                                headers = mapOf("Authorization" to "Bearer $auth")
+                                headers = mapOf("Authorization" to "Bearer ")
                         )
                         .parsedSafe<MalAnime>()
                         ?: throw ErrorLoadingException("Unable to fetch show details")
@@ -138,8 +141,9 @@ class MyAnimeList(val plugin: UltimaPlugin) : MainAPI() {
                                             isAnime = true
                                     )
                                     .toStringData()
-                    newEpisode(linkData) {
-                        this.season = 1
+                    newEpisode(linkData)
+                    {
+                        this.season= 1
                         this.episode = i
                     }
                 }

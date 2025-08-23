@@ -1,187 +1,199 @@
 package com.cncverse
 
+import android.os.Build
+import androidx.annotation.RequiresApi
+import com.lagradost.api.Log
 import com.cncverse.UltimaMediaProvidersUtils.ServerName.*
-import com.cncverse.UltimaMediaProvidersUtils.createSlug
-import com.cncverse.UltimaMediaProvidersUtils.getBaseUrl
 import com.cncverse.UltimaUtils.Category
 import com.cncverse.UltimaUtils.LinkData
 import com.lagradost.cloudstream3.SubtitleFile
-import com.lagradost.cloudstream3.amap
 import com.lagradost.cloudstream3.app
-import com.lagradost.cloudstream3.utils.*
-import com.lagradost.cloudstream3.utils.ExtractorApi
+import com.lagradost.cloudstream3.network.CloudflareKiller
 import com.lagradost.cloudstream3.utils.ExtractorLink
-import com.lagradost.cloudstream3.utils.INFER_TYPE
 import com.lagradost.cloudstream3.utils.loadExtractor
+import com.cncverse.UltimaMediaProvidersUtils.commonLinkLoader
 
 class MoviesDriveProvider : MediaProvider() {
     override val name = "MoviesDrive"
-    override val domain = "https://moviesdrive.online"
+    override val domain = "https://moviesdrive.channel"
     override val categories = listOf(Category.MEDIA)
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override suspend fun loadContent(
             url: String,
             data: LinkData,
             subtitleCallback: (SubtitleFile) -> Unit,
             callback: (ExtractorLink) -> Unit
     ) {
-        val title = data.title
-        val season = data.season
-        val episode = data.episode
-        try {
-            val fixTitle = title.createSlug()
-            val mediaurl = "$url/$fixTitle"
-            val document = app.get(mediaurl).document
+        val movieDriveAPI = getDomains()?.moviesdrive ?: return
+        val cleanTitle = data.title.orEmpty()
+        val season =data.season
+        val episode=data.episode
+        val year= data.year
+        val searchUrl = buildString {
+            append("$movieDriveAPI/?s=$cleanTitle")
+            if (season != null && !cleanTitle.contains(season.toString(), ignoreCase = true)) {
+                append(" $season")
+            } else if (season == null && year != null) {
+                append(" $year")
+            }
+        }
+
+        val figures = retry {
+            val allFigures =
+                app.get(searchUrl, interceptor = CloudflareKiller()).document.select("figure")
             if (season == null) {
-                document.select("h5 > a").map {
-                    val link = it.attr("href")
-                    val urls = ExtractMdrive(link)
-                    urls.forEach { servers ->
-                        val domain = getBaseUrl(servers)
-                        when (domain) {
-                            "https://gamerxyt.com" ->
-                                    UltimaMediaProvidersUtils.commonLinkLoader(
-                                            name,
-                                            MDrive,
-                                            servers,
-                                            null,
-                                            null,
-                                            subtitleCallback,
-                                            callback
-                                    )
-                        }
+                allFigures
+            } else {
+                val seasonPattern = Regex("""season\s*${season}\b""", RegexOption.IGNORE_CASE)
+                allFigures.filter { figure ->
+                    val img = figure.selectFirst("img")
+                    val alt = img?.attr("alt").orEmpty()
+                    val titleAttr = img?.attr("title").orEmpty()
+                    seasonPattern.containsMatchIn(alt) || seasonPattern.containsMatchIn(titleAttr)
+                }
+            }
+        } ?: return
+
+        for (figure in figures) {
+            val detailUrl = figure.selectFirst("a[href]")?.attr("href").orEmpty()
+            if (detailUrl.isBlank()) continue
+
+            val detailDoc = retry {
+                app.get(detailUrl, interceptor = CloudflareKiller()).document
+            } ?: continue
+
+            val imdbId = detailDoc
+                .select("a[href*=\"imdb.com/title/\"]")
+                .firstOrNull()
+                ?.attr("href")
+                ?.substringAfter("title/")
+                ?.substringBefore("/")
+                ?.takeIf { it.isNotBlank() } ?: continue
+
+            val titleMatch = imdbId == data.imdbId.orEmpty() || detailDoc
+                .select("main > p:nth-child(10)")
+                .firstOrNull()
+                ?.text()
+                ?.contains(cleanTitle, ignoreCase = true) == true
+
+            if (!titleMatch) continue
+
+            if (season == null) {
+                val links = detailDoc.select("h5 a")
+                for (element in links) {
+                    val urls = retry { extractMdrive(element.attr("href")) } ?: continue
+                    for (serverUrl in urls) {
+                        processMoviesdriveUrl(serverUrl, subtitleCallback, callback)
                     }
                 }
             } else {
-                val stag = "Season $season"
-                val sep = "Ep$episode"
-                val entries = document.select("h5:matches((?i)$stag)")
-                entries.amap { entry ->
-                    val href = entry.nextElementSibling()?.selectFirst("a")?.attr("href") ?: ""
-                    if (href.isNotBlank()) {
-                        val doc = app.get(href).document
-                        doc.select("h5:matches((?i)$sep)").forEach { epElement ->
-                            val linklist = mutableListOf<String>()
-                            epElement.nextElementSibling()?.let { sibling ->
-                                sibling.selectFirst("h5 > a")?.let { linklist.add(it.attr("href")) }
-                                sibling.nextElementSibling()?.let { nextSibling ->
-                                    nextSibling.selectFirst("h5 > a")?.let {
-                                        linklist.add(it.attr("href"))
-                                    }
-                                }
-                            }
-                            linklist.forEach { url ->
-                                val links = ExtractMdriveSeries(url)
-                                links.forEach { link ->
-                                    val domain = getBaseUrl(link)
-                                    when (domain) {
-                                        "https://gamerxyt.com" ->
-                                                UltimaMediaProvidersUtils.commonLinkLoader(
-                                                        name,
-                                                        MDrive,
-                                                        link,
-                                                        null,
-                                                        null,
-                                                        subtitleCallback,
-                                                        callback
-                                                )
-                                    }
-                                }
-                            }
-                        }
+                val seasonPattern = "(?i)Season\\s*0?$season\\b|S0?$season\\b"
+                val episodePattern =
+                    "(?i)Ep\\s?0?$episode\\b|Episode\\s+0?$episode\\b|V-Cloud|G-Direct|OXXFile"
+
+                val seasonElements = detailDoc.select("h5:matches($seasonPattern)")
+                if (seasonElements.isEmpty()) continue
+
+                val allLinks = mutableListOf<String>()
+
+                for (seasonElement in seasonElements) {
+                    val seasonHref = seasonElement.nextElementSibling()
+                        ?.selectFirst("a")
+                        ?.attr("href")
+                        ?.takeIf { it.isNotBlank() } ?: continue
+
+                    val episodeDoc = retry { app.get(seasonHref).document } ?: continue
+                    val episodeHeaders = episodeDoc.select("h5:matches($episodePattern)")
+
+                    for (header in episodeHeaders) {
+
+                        val siblingLinks =
+                            generateSequence(header.nextElementSibling()) { it.nextElementSibling() }
+                                .takeWhile { it.tagName() != "hr" }
+                                .filter { it.tagName() == "h5" }
+                                .mapNotNull { h5 ->
+                                    h5.selectFirst("a")?.takeIf { a ->
+                                        !a.text()
+                                            .contains("Zip", ignoreCase = true) && a.hasAttr("href")
+                                    }?.attr("href")
+                                }.toList()
+
+                        allLinks.addAll(siblingLinks)
                     }
                 }
-            }
-        } catch (e: Exception) {}
-    }
-
-    suspend fun ExtractMdrive(url: String): MutableList<String> {
-        val doc = app.get(url).document
-        val linklist = mutableListOf(String())
-        doc.select("h5 > a").forEach {
-            val link = it.attr("href").replace("lol", "day")
-            if (!link.contains("gdtot")) {
-                val mainpage =
-                        app.get(link)
-                                .document
-                                .selectFirst("a.btn.btn-primary")
-                                ?.attr("href")
-                                .toString()
-                if (!mainpage.contains("https://")) {
-                    val newlink = "https://hubcloud.day$mainpage"
-                    linklist.add(newlink)
+                if (allLinks.isNotEmpty()) {
+                    for (serverUrl in allLinks) {
+                        processMoviesdriveUrl(serverUrl, subtitleCallback, callback)
+                    }
                 } else {
-                    linklist.add(mainpage)
+                    detailDoc.select("h5 a:contains(HubCloud)")
+                        .mapNotNull { it.attr("href").takeIf { href -> href.isNotBlank() } }
+                        .forEach { fallbackUrl ->
+                            processMoviesdriveUrl(fallbackUrl, subtitleCallback, callback)
+                        }
                 }
             }
         }
-        return linklist
     }
 
-    suspend fun ExtractMdriveSeries(url: String): MutableList<String> {
-        val linklist = mutableListOf(String())
-        val mainpage =
-                app.get(url.replace("lol", "day"))
-                        .document
-                        .selectFirst("a.btn.btn-primary")
-                        ?.attr("href")
-                        .toString()
-        if (!mainpage.contains("https://")) {
-            val newlink = "https://hubcloud.day$mainpage"
-            linklist.add(newlink)
-        } else {
-            linklist.add(mainpage)
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private suspend fun processMoviesdriveUrl(
+        serverUrl: String,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ) {
+        when {
+            serverUrl.contains("hubcloud", ignoreCase = true) -> {
+                commonLinkLoader(
+                    name,
+                    Hubcloud,
+                    serverUrl,
+                    null,
+                    null,
+                    subtitleCallback,
+                    callback
+                )
+            }
+
+            serverUrl.contains("gdlink", ignoreCase = true) -> {
+                commonLinkLoader(
+                    name,
+                    GDFlix,
+                    serverUrl,
+                    null,
+                    null,
+                    subtitleCallback,
+                    callback
+                )
+            }
+            else -> {
+                loadExtractor(serverUrl, referer = "MoviesDrive", subtitleCallback, callback)
+            }
         }
-        return linklist
     }
-
     // Extractor
 
-    open class Mdrive : ExtractorApi() {
-        override val name: String = "Mdrive"
-        override val mainUrl: String = "https://gamerxyt.com"
-        override val requiresReferer = false
 
-        override suspend fun getUrl(
-                url: String,
-                referer: String?,
-                subtitleCallback: (SubtitleFile) -> Unit,
-                callback: (ExtractorLink) -> Unit
-        ) {
-            val host = url.substringAfter("?").substringBefore("&")
-            val id = url.substringAfter("id=").substringBefore("&")
-            val token = url.substringAfter("token=").substringBefore("&")
-            val Cookie = "$host; hostid=$id; hosttoken=$token"
-            val doc = app.get("$mainUrl/games/", headers = mapOf("Cookie" to Cookie)).document
-            val links = doc.select("div.card-body > h2 > a").attr("href")
-            val header = doc.selectFirst("div.card-header")?.text()
-            if (links.contains("pixeldrain")) {
-                callback.invoke(
-                        newExtractorLink(
-                                source = "MovieDrive",
-                                name = "PixelDrain",
-                                url = links,
-                                type = INFER_TYPE
-                        ) {
-                            this.headers = mapOf("Referer" to links)
-                            this.quality = UltimaMediaProvidersUtils.getIndexQuality(header)
-                        }
-                )
-            } else if (links.contains("gofile")) {
-                loadExtractor(links, subtitleCallback, callback)
-            } else {
-                callback.invoke(
-                        newExtractorLink(
-                                source = "MovieDrive",
-                                name = "MovieDrive",
-                                url = links,
-                                type = INFER_TYPE
-                        ) {
-                            this.headers = mapOf("Referer" to "")
-                            this.quality = UltimaMediaProvidersUtils.getIndexQuality(header)
-                        }
-                )
-            }
+
+    private suspend fun extractMdrive(url: String): List<String> {
+        val regex = Regex("hubcloud|gdflix|gdlink", RegexOption.IGNORE_CASE)
+
+        return try {
+            app.get(url).document
+                .select("a[href]")
+                .mapNotNull { element ->
+                    val href = element.attr("href")
+                    if (regex.containsMatchIn(href)) {
+                        href
+                    } else {
+                        null
+                    }
+                }
+        } catch (e: Exception) {
+            Log.e("Error Mdrive", "Error extracting links: ${e.localizedMessage}")
+            emptyList()
         }
     }
 }

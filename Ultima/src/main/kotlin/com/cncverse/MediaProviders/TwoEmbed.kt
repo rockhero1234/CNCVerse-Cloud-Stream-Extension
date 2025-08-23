@@ -32,13 +32,13 @@ class TwoEmbedMediaProvider : MediaProvider() {
         val id = framesrc.substringAfter("id=").substringBefore("&")
         val finalUrl = "https://uqloads.xyz/e/$id"
         UltimaMediaProvidersUtils.commonLinkLoader(
-                name,
-                ServerName.Uqload,
-                finalUrl,
-                referer,
-                null,
-                subtitleCallback,
-                callback
+            name,
+            ServerName.Uqload,
+            finalUrl,
+            referer,
+            null,
+            subtitleCallback,
+            callback
         )
     }
 
