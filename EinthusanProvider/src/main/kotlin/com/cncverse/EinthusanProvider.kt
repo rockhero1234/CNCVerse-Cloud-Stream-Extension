@@ -132,7 +132,7 @@ class EinthusanProvider : MainAPI() { // all providers must be an instance of Ma
         val mp4link = doc.select("#UIVideoPlayer").attr("data-mp4-link")
         val m3u8link = doc.select("#UIVideoPlayer").attr("data-hls-link")
 
-        return newMovieLoadResponse(title, href, TvType.Movie, "$mp4link,$m3u8link") {
+        return newMovieLoadResponse(title, "$mp4link,$m3u8link", TvType.Movie, "$mp4link,$m3u8link") {
                 this.posterUrl = poster?.trim()
                 this.year = year
                 this.plot = description
@@ -152,15 +152,13 @@ class EinthusanProvider : MainAPI() { // all providers must be an instance of Ma
         val m3u8link = data.substringAfter(",")
 
         val ipfind = Regex("\\b\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\b")
-        val Fixedmp4link = ipfind.replace(mp4link, "cdn1.einthusan.io")
-        val Fixedm3u8link = ipfind.replace(m3u8link, "cdn1.einthusan.io")
-
-        safeApiCall {
+        val fixedmp4link = ipfind.replace(mp4link, "cdn1.einthusan.io")
+        val fixedm3u8link = ipfind.replace(m3u8link, "cdn1.einthusan.io")
             callback.invoke(
                 newExtractorLink(
                     source = "$name-MP4",
                     name = "$name-MP4",
-                    url = Fixedmp4link,
+                    url = fixedmp4link,
                     type = ExtractorLinkType.VIDEO
                 ) {
                     this.headers = mapOf("Referer" to "$mainUrl/")
@@ -171,14 +169,13 @@ class EinthusanProvider : MainAPI() { // all providers must be an instance of Ma
                 newExtractorLink(
                     source = "$name-M3U8",
                     name = "$name-M3U8",
-                    url = Fixedm3u8link,
+                    url = fixedm3u8link,
                     type = ExtractorLinkType.M3U8
                 ) {
                     this.headers = mapOf("Referer" to "$mainUrl/")
                     this.quality = Qualities.Unknown.value
                 }
             )
-        }
 
         return true
     }
