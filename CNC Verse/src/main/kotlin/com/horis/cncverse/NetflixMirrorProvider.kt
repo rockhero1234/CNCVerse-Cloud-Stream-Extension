@@ -42,9 +42,9 @@ class NetflixMirrorProvider : MainAPI() {
             "hd" to "on"
         )
         val document = app.get(
-            "$mainUrl/home",
+            "$mainUrl/tv/home",
             cookies = cookies,
-            referer = "$mainUrl/",
+            referer = "$mainUrl/tv/home",
         ).document
         val items = document.select(".lolomoRow").map {
             it.toHomePageList()
