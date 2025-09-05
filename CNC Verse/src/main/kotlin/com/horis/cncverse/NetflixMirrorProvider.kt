@@ -31,7 +31,20 @@ class NetflixMirrorProvider : MainAPI() {
     override val hasMainPage = true
     private var cookie_value = ""
     private val headers = mapOf(
-        "X-Requested-With" to "XMLHttpRequest"
+        "Accept" to "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Accept-Language" to "en-IN,en-US;q=0.9,en;q=0.8",
+        "Connection" to "keep-alive",
+        "Host" to "net50.cc",
+        "sec-ch-ua" to "\"Not;A=Brand\";v=\"99\", \"Android WebView\";v=\"139\", \"Chromium\";v=\"139\"",
+        "sec-ch-ua-mobile" to "?0",
+        "sec-ch-ua-platform" to "\"Android\"",
+        "Sec-Fetch-Dest" to "document",
+        "Sec-Fetch-Mode" to "navigate",
+        "Sec-Fetch-Site" to "none",
+        "Sec-Fetch-User" to "?1",
+        "Upgrade-Insecure-Requests" to "1",
+        "User-Agent" to "Mozilla/5.0 (Linux; Android 13; Pixel 5 Build/TQ3A.230901.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/139.0.7258.158 Safari/537.36 /OS.Gatu v3.0",
+        "X-Requested-With" to ""
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse? {
@@ -42,29 +55,38 @@ class NetflixMirrorProvider : MainAPI() {
             "hd" to "on"
         )
         val document = app.get(
-            "$mainUrl/tv/home",
+            "https://net50.cc/mobile/home?app=1",
+            headers = headers,
             cookies = cookies,
-            referer = "$mainUrl/tv/home",
+            referer = "https://net50.cc/",
         ).document
-        val items = document.select(".lolomoRow").map {
+        val items = document.select(".tray-container, #top10").map {
             it.toHomePageList()
         }
         return newHomePageResponse(items, false)
     }
 
     private fun Element.toHomePageList(): HomePageList {
-        val name = select("h2 > span > div").text()
-        val items = select("img.lazy").mapNotNull {
+        val name = select("h2, span").text()
+        val items = select("article, .top10-post").mapNotNull {
             it.toSearchResult()
         }
         return HomePageList(name, items)
     }
 
     private fun Element.toSearchResult(): SearchResponse? {
-        val id = attr("data-src").substringAfterLast("/").substringBefore(".")
-        val posterUrl = "https://img.nfmirrorcdn.top/poster/v/${id}.jpg"
+        val id = attr("data-post").takeIf { it.isNotEmpty() }
+            ?: run {
+                val imgSrc = selectFirst("img")?.attr("data-src") ?: selectFirst("img")?.attr("src") ?: ""
+                imgSrc.substringAfterLast("/").substringBefore(".")
+            }
+        
+        if (id.isEmpty()) return null
+        
+        val posterUrl = "https://imgcdn.media/poster/v/${id}.jpg"
+        val title = selectFirst("img")?.attr("alt") ?: ""
 
-        return newAnimeSearchResponse("", Id(id).toJson()) {
+        return newAnimeSearchResponse(title, Id(id).toJson()) {
             this.posterUrl = posterUrl
             posterHeaders = mapOf("Referer" to "$mainUrl/tv/home")
         }
