@@ -219,10 +219,10 @@ class PrimeVideoMirrorProvider : MainAPI() {
                     newExtractorLink(
                         name,
                         it.label,
-                        "https://net50.cc${it.file.replace("/tv/", "/")}",
+                        "https://net51.cc${it.file.replace("/tv/", "/")}",
                         type = ExtractorLinkType.M3U8
                     ) {
-                        this.referer = "https://net50.cc/"
+                        this.referer = "https://net51.cc/"
                         this.quality = getQualityFromName(it.file.substringAfter("q=", ""))
                     }
                 )
