@@ -282,7 +282,7 @@ class DoFlixProvider : MainAPI() {
             }
         }
 
-        return HomePageResponse(homePageList)
+        return newHomePageResponse(homePageList)
     }
 
     override suspend fun search(query: String): List<com.lagradost.cloudstream3.SearchResponse> {

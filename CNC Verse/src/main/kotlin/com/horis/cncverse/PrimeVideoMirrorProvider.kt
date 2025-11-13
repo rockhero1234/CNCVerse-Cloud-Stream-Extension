@@ -121,7 +121,7 @@ class PrimeVideoMirrorProvider : MainAPI() {
             ?.map { it.trim() }
             ?.filter { it.isNotEmpty() }
             ?: emptyList())
-        val rating = data.match?.replace("IMDb ", "")?.toRatingInt()
+        val score = data.match?.replace("IMDb ", "")?.let { Score.from10(it) }
         val runTime = convertRuntimeToMinutes(data.runtime.toString())
 
         if (data.episodes.first() == null) {
@@ -157,7 +157,7 @@ class PrimeVideoMirrorProvider : MainAPI() {
             year = data.year.toIntOrNull()
             tags = genre
             actors = cast
-            this.rating = rating
+            this.score = score
             this.duration = runTime
         }
     }
