@@ -22,11 +22,14 @@ class HotStarMirrorProvider : MainAPI() {
     override val supportedTypes = setOf(
         TvType.Movie,
         TvType.TvSeries,
+        TvType.Anime,
+        TvType.AsianDrama
     )
     override var lang = "ta"
 
-    override var mainUrl = "https://net2025.cc"
-    override var name = "HotStar"
+    override var mainUrl = "https://net20.cc"
+    private var newUrl = "https://net51.cc"
+    override var name = "Hotstar"
 
     override val hasMainPage = true
     private var cookie_value = ""
@@ -44,7 +47,7 @@ class HotStarMirrorProvider : MainAPI() {
         val document = app.get(
             "$mainUrl/mobile/home",
             cookies = cookies,
-            referer = "$mainUrl/tv/home",
+            referer = "$mainUrl/home",
         ).document
         val items = document.select(".tray-container, #top10").map {
             it.toHomePageList()
@@ -57,17 +60,17 @@ class HotStarMirrorProvider : MainAPI() {
         val items = select("article, .top10-post").mapNotNull {
             it.toSearchResult()
         }
-        return HomePageList(name, items)
+        return HomePageList(name, items, isHorizontalImages = false)
     }
 
     private fun Element.toSearchResult(): SearchResponse? {
         val id = selectFirst("a")?.attr("data-post") ?: attr("data-post") ?: return null
-        val posterUrl =
-            fixUrlNull(selectFirst(".card-img-container img, .top10-img img")?.attr("data-src"))
+        // val posterUrl =
+        //     fixUrlNull(selectFirst(".card-img-container img, .top10-img img")?.attr("data-src"))
 
         return newAnimeSearchResponse("", Id(id).toJson()) {
-            this.posterUrl = posterUrl
-            posterHeaders = mapOf("Referer" to "$mainUrl/tv/home")
+            this.posterUrl = "https://imgcdn.kim/hs/v/$id.jpg"
+            posterHeaders = mapOf("Referer" to "$mainUrl/home")
         }
     }
 
@@ -79,12 +82,12 @@ class HotStarMirrorProvider : MainAPI() {
             "ott" to "hs"
         )
         val url = "$mainUrl/mobile/hs/search.php?s=$query&t=${APIHolder.unixTime}"
-        val data = app.get(url, referer = "$mainUrl/tv/home", cookies = cookies).parsed<SearchData>()
+        val data = app.get(url, referer = "$mainUrl/home", cookies = cookies).parsed<SearchData>()
 
         return data.searchResult.map {
             newAnimeSearchResponse(it.t, Id(it.id).toJson()) {
-                posterUrl = "https://imgcdn.kim/hs/v/166/${it.id}.jpg"
-                posterHeaders = mapOf("Referer" to "$mainUrl/tv/home")
+                posterUrl = "https://imgcdn.kim/hs/v/${it.id}.jpg"
+                posterHeaders = mapOf("Referer" to "$mainUrl/home")
             }
         }
     }
@@ -100,7 +103,7 @@ class HotStarMirrorProvider : MainAPI() {
         val data = app.get(
             "$mainUrl/mobile/hs/post.php?id=$id&t=${APIHolder.unixTime}",
             headers,
-            referer = "$mainUrl/tv/home",
+            referer = "$mainUrl/home",
             cookies = cookies
         ).parsed<PostData>()
 
@@ -113,12 +116,19 @@ class HotStarMirrorProvider : MainAPI() {
                 Actor(it),
             )
         }
-        val genre = listOf(data.ua.toString()) + (data.genre?.split(",")
+        val genre = data.genre?.split(",")
             ?.map { it.trim() }
             ?.filter { it.isNotEmpty() }
-            ?: emptyList())
-        val score = data.match?.replace("IMDb ", "")?.let { Score.from10(it) }
+
+        val rating = data.match?.replace("IMDb ", "")
         val runTime = convertRuntimeToMinutes(data.runtime.toString())
+
+        val suggest = data.suggest?.map {
+            newAnimeSearchResponse("", Id(it.id).toJson()) {
+                this.posterUrl = "https://imgcdn.kim/hs/v/${it.id}.jpg"
+                posterHeaders = mapOf("Referer" to "$mainUrl/home")
+            }
+        }
 
         if (data.episodes.first() == null) {
             episodes.add(newEpisode(LoadData(title, id)) {
@@ -130,7 +140,7 @@ class HotStarMirrorProvider : MainAPI() {
                     this.name = it.t
                     this.episode = it.ep.replace("E", "").toIntOrNull()
                     this.season = it.s.replace("S", "").toIntOrNull()
-                    this.posterUrl = "https://imgcdn.kim/hsepimg/${it.id}.jpg"
+                    this.posterUrl = "https://imgcdn.kim/hsepimg/150/${it.id}.jpg"
                     this.runTime = it.time.replace("m", "").toIntOrNull()
                 }
             }
@@ -147,15 +157,17 @@ class HotStarMirrorProvider : MainAPI() {
         val type = if (data.episodes.first() == null) TvType.Movie else TvType.TvSeries
 
         return newTvSeriesLoadResponse(title, url, type, episodes) {
-            posterUrl = "https://imgcdn.kim/hs/v/166/$id.jpg"
-            backgroundPosterUrl ="https://imgcdn.kim/hs/h/166/$id.jpg"
-            posterHeaders = mapOf("Referer" to "$mainUrl/tv/home")
+            posterUrl = "https://imgcdn.kim/hs/v/$id.jpg"
+            backgroundPosterUrl = "https://imgcdn.kim/hs/h/$id.jpg"
+            posterHeaders = mapOf("Referer" to "$mainUrl/home")
             plot = data.desc
             year = data.year.toIntOrNull()
             tags = genre
             actors = cast
-            this.score = score
+            this.score =  Score.from10(rating)
             this.duration = runTime
+            this.contentRating = data.ua
+            this.recommendations = suggest
         }
     }
 
@@ -173,7 +185,7 @@ class HotStarMirrorProvider : MainAPI() {
             val data = app.get(
                 "$mainUrl/mobile/hs/episodes.php?s=$sid&series=$eid&t=${APIHolder.unixTime}&page=$pg",
                 headers,
-                referer = "$mainUrl/tv/home",
+                referer = "$mainUrl/home",
                 cookies = cookies
             ).parsed<EpisodesData>()
             data.episodes?.mapTo(episodes) {
@@ -206,7 +218,7 @@ class HotStarMirrorProvider : MainAPI() {
         val playlist = app.get(
             "$mainUrl/mobile/hs/playlist.php?id=$id&t=$title&tm=${APIHolder.unixTime}",
             headers,
-            referer = "$mainUrl/tv/home",
+            referer = "$mainUrl/home",
             cookies = cookies
         ).parsed<PlayList>()
 
@@ -216,10 +228,10 @@ class HotStarMirrorProvider : MainAPI() {
                     newExtractorLink(
                         name,
                         it.label,
-                        fixUrl(it.file),
+                        "$newUrl/${it.file}",
                         type = ExtractorLinkType.M3U8
                     ) {
-                        this.referer = "$mainUrl/tv/home"
+                        this.referer = "$newUrl/home"
                         this.quality = getQualityFromName(it.file.substringAfter("q=", ""))
                     }
                 )
@@ -227,7 +239,7 @@ class HotStarMirrorProvider : MainAPI() {
 
             item.tracks?.filter { it.kind == "captions" }?.map { track ->
                 subtitleCallback.invoke(
-                    SubtitleFile(
+                    newSubtitleFile(
                         track.label.toString(),
                         httpsify(track.file.toString())
                     )
