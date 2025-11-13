@@ -297,7 +297,7 @@ class StreamFlixProvider : MainAPI() {
                     this.year = item.movieYear?.toIntOrNull()
                     this.plot = item.movieDesc
                     this.tags = item.movieInfo?.split("/") ?: emptyList()
-                    this.rating = ((item.movieRating ?: 0.0) * 1000).toInt()
+                    this.score = item.movieRating?.let { Score.from10(it) }
                 }
             } else {
                 newMovieLoadResponse(
@@ -311,7 +311,7 @@ class StreamFlixProvider : MainAPI() {
                     this.year = item.movieYear?.toIntOrNull()
                     this.plot = item.movieDesc
                     this.tags = item.movieInfo?.split("/") ?: emptyList()
-                    this.rating = ((item.movieRating ?: 0.0) * 1000).toInt()
+                    this.score = item.movieRating?.let { Score.from10(it) }
                     this.recommendations = emptyList()
                 }
             }
@@ -338,7 +338,7 @@ class StreamFlixProvider : MainAPI() {
                             this.episode = episodeKey + 1 // Episodes are 0-indexed, make them 1-indexed
                             this.description = episodeData.overview
                             this.posterUrl = episodeData.stillPath?.let { "https://image.tmdb.org/t/p/w500/$it" }
-                            this.rating = (episodeData.voteAverage * 100).toInt()
+                            this.score = Score.from10(episodeData.voteAverage)
                         }
                     )
                 }

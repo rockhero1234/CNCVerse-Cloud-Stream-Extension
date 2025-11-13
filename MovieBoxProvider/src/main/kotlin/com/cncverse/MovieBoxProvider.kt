@@ -364,7 +364,7 @@ class MovieBoxProvider : MainAPI() {
                 this.year = year
                 this.tags = tags
                 this.actors = actors
-                this.rating = imdbRating
+                this.score = imdbRating?.let { Score.from10(it.toDouble()) }
                 this.duration = durationMinutes
             }
         } else {
@@ -375,7 +375,7 @@ class MovieBoxProvider : MainAPI() {
                 this.year = year
                 this.tags = tags
                 this.actors = actors
-                this.rating = imdbRating
+                this.score = imdbRating?.let { Score.from10(it.toDouble()) }
                 this.duration = durationMinutes
             }
         }

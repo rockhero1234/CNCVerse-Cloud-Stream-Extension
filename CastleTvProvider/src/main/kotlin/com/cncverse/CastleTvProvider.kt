@@ -508,7 +508,7 @@ class CastleTvProvider : MainAPI() {
                         this.backgroundPosterUrl = backgroundPosterUrl
                         this.plot = plot
                         this.year = year
-                        this.rating = rating
+                        this.score = Score.from(rating, 1000)
                         this.tags = tags
                         this.actors = actors
                         this.recommendations = recommendations
@@ -532,7 +532,7 @@ class CastleTvProvider : MainAPI() {
                         this.backgroundPosterUrl = backgroundPosterUrl
                         this.plot = plot
                         this.year = year
-                        this.rating = rating
+                        this.score = Score.from(rating, 1000)
                         this.tags = tags
                         this.actors = actors
                         this.recommendations = recommendations
@@ -664,7 +664,7 @@ class CastleTvProvider : MainAPI() {
                                 videoData.subtitles?.forEach { subtitle ->
                                     if (!subtitle.url.isNullOrBlank()) {
                                         subtitleCallback.invoke(
-                                            SubtitleFile(
+                                            newSubtitleFile(
                                                 lang = subtitle.title ?: subtitle.abbreviate ?: "Unknown",
                                                 url = subtitle.url
                                             )
@@ -735,7 +735,7 @@ class CastleTvProvider : MainAPI() {
                                     videoData.subtitles?.forEach { subtitle ->
                                         if (!subtitle.url.isNullOrBlank()) {
                                             subtitleCallback.invoke(
-                                                SubtitleFile(
+                                                newSubtitleFile(
                                                     lang = subtitle.title ?: subtitle.abbreviate ?: "Unknown",
                                                     url = subtitle.url
                                                 )

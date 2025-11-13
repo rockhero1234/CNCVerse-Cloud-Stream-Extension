@@ -48,7 +48,7 @@ class EinthusanProvider : MainAPI() { // all providers must be an instance of Ma
             it.toSearchResult()
         }
 
-        return HomePageResponse(arrayListOf(HomePageList(request.name, home)), hasNext = true)
+        return newHomePageResponse(arrayListOf(HomePageList(request.name, home)), hasNext = true)
     }
 
     private fun Element.toSearchResult(): SearchResponse? {
@@ -117,7 +117,7 @@ class EinthusanProvider : MainAPI() { // all providers must be an instance of Ma
             doc.selectFirst("div.block2 > div.info > p")?.ownText()?.trim()?.toInt()
         //Log.d("year", year.toString())
         val description = doc.selectFirst("p.synopsis")?.text()?.trim()
-        val rating = doc.select("ul.average-rating > li > p[data-value]").toString().toRatingInt()
+        val score = doc.select("ul.average-rating > li > p[data-value]").toString().let { Score.from10(it) }
         //Log.d("rating", rating.toString())
         val actors =
             doc.select("div.professionals > div").map {
@@ -137,7 +137,7 @@ class EinthusanProvider : MainAPI() { // all providers must be an instance of Ma
                 this.year = year
                 this.plot = description
                 this.tags = tags
-                this.rating = rating
+                this.score = score
                 this.actors = actors
             }
     }
