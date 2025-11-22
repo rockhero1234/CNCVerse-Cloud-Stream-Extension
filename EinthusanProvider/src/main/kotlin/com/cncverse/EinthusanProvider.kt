@@ -11,7 +11,7 @@ import com.lagradost.nicehttp.NiceResponse
 import okhttp3.FormBody
 
 class EinthusanProvider : MainAPI() { // all providers must be an instance of MainAPI
-    override var mainUrl = "https://thingproxy.freeboard.io/fetch/https://einthusan.tv"
+    override var mainUrl = "https://cors.nivincharles.workers.dev/https://einthusan.tv"
     override var name = "Einthusan"
     override val hasMainPage = true
     override var lang = "ta"

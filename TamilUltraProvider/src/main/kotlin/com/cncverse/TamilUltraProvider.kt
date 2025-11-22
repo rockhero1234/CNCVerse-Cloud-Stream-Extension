@@ -11,7 +11,7 @@ import com.lagradost.nicehttp.NiceResponse
 import okhttp3.FormBody
 
 class TamilUltraProvider : MainAPI() { // all providers must be an instance of MainAPI
-    override var mainUrl = "https://thingproxy.freeboard.io/fetch/https://tamilultratv.com"
+    override var mainUrl = "https://cors.nivincharles.workers.dev/https://tamilultratv.com"
     override var name = "TamilUltra"
     override val hasMainPage = true
     override var lang = "ta"
@@ -52,7 +52,7 @@ class TamilUltraProvider : MainAPI() { // all providers must be an instance of M
     private fun Element.toSearchResult(): SearchResponse? {
         val title = this.selectFirst("div.data > h3 > a")?.text()?.toString()?.trim()
             ?: return null
-        val href = "https://thingproxy.freeboard.io/fetch/" + fixUrl(this.selectFirst("div.data > h3 > a")?.attr("href").toString())
+        val href = "https://cors.nivincharles.workers.dev/" + fixUrl(this.selectFirst("div.data > h3 > a")?.attr("href").toString())
         val posterUrl = fixUrlNull(this.selectFirst("div.poster > img")?.attr("src"))
         return newMovieSearchResponse(title, href, TvType.Live) {
                 this.posterUrl = posterUrl
@@ -72,7 +72,7 @@ class TamilUltraProvider : MainAPI() { // all providers must be an instance of M
             val finalUrl = if (href.startsWith("/")) {
                 mainUrl + href
             } else {
-                "https://thingproxy.freeboard.io/fetch/" + href
+                "https://cors.nivincharles.workers.dev/" + href
             }
             val posterUrl = fixUrlNull(
                 it.selectFirst("article > div.image > div.thumbnail > a > img")?.attr("src")

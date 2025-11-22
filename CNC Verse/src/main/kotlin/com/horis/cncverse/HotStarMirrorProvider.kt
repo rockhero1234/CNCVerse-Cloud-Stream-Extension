@@ -216,7 +216,7 @@ class HotStarMirrorProvider : MainAPI() {
             "ott" to "hs"
         )
         val playlist = app.get(
-            "$mainUrl/mobile/hs/playlist.php?id=$id&t=$title&tm=${APIHolder.unixTime}",
+            "$newUrl/mobile/hs/playlist.php?id=$id&t=$title&tm=${APIHolder.unixTime}",
             headers,
             referer = "$mainUrl/home",
             cookies = cookies

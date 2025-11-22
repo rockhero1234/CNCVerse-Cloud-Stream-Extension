@@ -220,7 +220,7 @@ class PrimeVideoMirrorProvider : MainAPI() {
             "hd" to "on"
         )
         val playlist = app.get(
-            "$newUrl/tv/pv/playlist.php?id=$id&t=$title&tm=${APIHolder.unixTime}",
+            "$newUrl/pv/playlist.php?id=$id&t=$title&tm=${APIHolder.unixTime}",
             headers,
             referer = "$newUrl/home",
             cookies = cookies
