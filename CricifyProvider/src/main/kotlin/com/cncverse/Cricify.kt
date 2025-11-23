@@ -544,28 +544,28 @@ class IptvPlaylistParser {
                             ?.replace("-", "")
                             ?.chunked(2)
                             ?.mapNotNull {
-                              try { it.toInt(16).toByte() }
-                              catch (e: NumberFormatException) { null }
+                                try { it.toInt(16).toByte() }
+                                catch (e: NumberFormatException) { null }
                             } ?.toByteArray()
 
                           val drmKeyBytes = parts.getOrNull(1)
                             ?.replace("-", "")?.chunked(2)
                             ?.mapNotNull {
-                              try { it.toInt(16).toByte() }
-                              catch (e: NumberFormatException) { null }
+                                try { it.toInt(16).toByte() }
+                                catch (e: NumberFormatException) { null }
                             } ?.toByteArray()
 
                           val drmKidBase64 = if (drmKidBytes != null)
-                            Base64.encodeToString(
-                              drmKidBytes,
-                              Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP
-                            ) else null
+                              Base64.encodeToString(
+                                 drmKidBytes,
+                                 Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP
+                              ) else null
 
                           val drmKeyBase64 = if (drmKeyBytes != null)
-                            Base64.encodeToString(
-                              drmKeyBytes,
-                              Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP
-                            ) else null
+                              Base64.encodeToString(
+                                 drmKeyBytes,
+                                 Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP
+                              ) else null
 
                             println("Decoded DRM keys - keyid: $drmKidBase64, key: $drmKeyBase64")
                             bufferedKey = drmKeyBase64
