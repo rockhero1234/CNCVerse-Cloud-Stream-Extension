@@ -1,5 +1,6 @@
 package com.cncverse
 
+import android.util.Base64
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import com.lagradost.cloudstream3.utils.AppUtils.toJson
@@ -17,25 +18,45 @@ import okhttp3.Response
 import java.io.InputStream
 import java.util.UUID
 import com.lagradost.cloudstream3.base64Encode
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.nio.charset.StandardCharsets
 
 class HeaderReplacementInterceptor(private val customHeaders: Map<String, String>) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
         val requestBuilder = originalRequest.newBuilder()
-        
+
         // Remove existing headers that we want to replace
         customHeaders.keys.forEach { headerName ->
             requestBuilder.removeHeader(headerName)
         }
-        
+
         // Add our custom headers
         customHeaders.forEach { (name, value) ->
             requestBuilder.addHeader(name, value)
         }
-        
+
         return chain.proceed(requestBuilder.build())
     }
+}
+
+class LoggingInterceptor : Interceptor {
+  override fun intercept(chain: Interceptor.Chain): Response {
+    val req = chain.request()
+
+    val bodyCopy = req.body
+    val buffer = okio.Buffer()
+    bodyCopy?.writeTo(buffer)
+    val bodyString = buffer.readUtf8()
+
+    println("URL: ${req.url}")
+    println("Method: ${req.method}")
+    println("Headers:\n${req.headers}")
+    println("Body:\n$bodyString")
+
+    return chain.proceed(req)
+  }
 }
 
 class Cricify(
@@ -66,9 +87,55 @@ class Cricify(
         val request = Request.Builder()
             .url(url)
             .build()
-        
+
         return customHttpClient.newCall(request).execute().use { response ->
             response.body?.string() ?: ""
+        }
+    }
+
+  private fun getMpdStream(url: String, customHeaders: Map<String, String>): String {
+        val client = OkHttpClient.Builder()
+            .addInterceptor(HeaderReplacementInterceptor(customHeaders))
+            .build()
+
+        val request = Request.Builder()
+            .url(url)
+            .build()
+
+        return client.newCall(request).execute().use { response ->
+          response.body.string()
+        }
+    }
+
+  private fun getDRMKeysFromLicenseServer(url: String, kid: String): String {
+      val userAgent = "Dalvik/2.1.0 (Linux; U; Android)"
+        val client = OkHttpClient.Builder()
+            .addInterceptor(HeaderReplacementInterceptor(
+              mapOf(
+                "User-Agent" to userAgent,
+                "Content-Type" to "application/json;charset=UTF-8",
+              )
+            ))
+            .addInterceptor(LoggingInterceptor())
+            .build()
+
+        // Prepare the request body with the KID
+        val json = "{\"kids\":[\"$kid\"],\"type\":\"temporary\"}"
+        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val body = json.toRequestBody(mediaType)
+
+        val request = Request.Builder()
+            .url(url)
+            .post(body)
+            .build()
+
+        return client.newCall(request).execute().use { response ->
+          // Parse the response to extract the DRM key
+          val response = response.body.string()
+          val jsonResponse = parseJson<Map<String, Any>>(response)
+          val keys = jsonResponse["keys"] as? List<Map<String, String>> ?: return ""
+          val firstKey = keys.firstOrNull() ?: return ""
+          firstKey["k"] ?: ""
         }
     }
 
@@ -105,7 +172,7 @@ class Cricify(
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val data = IptvPlaylistParser().parseM3U(getWithCustomHeaders(mainUrl))      
+        val data = IptvPlaylistParser().parseM3U(getWithCustomHeaders(mainUrl))
         return data.items.filter { it.title?.contains(query,ignoreCase = true) ?: false }.map { channel ->
                 val streamurl = channel.url.toString()
                 val channelname = channel.title.toString()
@@ -152,7 +219,7 @@ class Cricify(
     ): Boolean {
         val loadData = parseJson<LoadData>(data)
         if (loadData.url.contains("mpd"))
-        {  
+        {
             val headers = mutableMapOf<String, String>()
             if (loadData.userAgent.isNotEmpty()) {
                 headers["User-Agent"] = loadData.userAgent
@@ -160,29 +227,12 @@ class Cricify(
             if (loadData.cookie.isNotEmpty()) {
                 headers["Cookie"] = loadData.cookie
             }
-            
-            val hasValidKeys = loadData.key.isNotEmpty() && loadData.keyid.isNotEmpty() && 
+
+            val hasValidKeys = loadData.key.isNotEmpty() && loadData.keyid.isNotEmpty() &&
                               loadData.key.trim() != "null" && loadData.keyid.trim() != "null"
             val hasLicenseUrl = loadData.licenseUrl.isNotEmpty() && loadData.licenseUrl.trim() != "null"
-            
-            if (hasLicenseUrl) {
-                callback.invoke(
-                    newDrmExtractorLink(
-                        this.name,
-                        this.name,
-                        loadData.url,
-                        INFER_TYPE,
-                        CLEARKEY_UUID
-                    )
-                    {
-                        this.quality=Qualities.Unknown.value
-                        if (headers.isNotEmpty()) {
-                            this.headers = headers
-                        }
-                        this.licenseUrl=loadData.licenseUrl.trim()
-                    }
-                )
-            } else if (hasValidKeys) {
+
+            if (hasValidKeys) {
                 callback.invoke(
                     newDrmExtractorLink(
                         this.name,
@@ -200,7 +250,69 @@ class Cricify(
                         this.kid=loadData.keyid.trim()
                     }
                 )
-            } else {
+            } else if (hasLicenseUrl) {
+              println("Attempting to fetch DRM keys from License Server")
+              // Get DRM KID from MPD Stream
+              val mpdStr = getMpdStream(
+                url = loadData.url,
+                customHeaders = headers
+              )
+              val regex = Regex("""cenc:default_KID=["']([0-9a-fA-F\-]{36})["']""")
+              val matchResult = regex.find(mpdStr)
+              val drmKid = matchResult?.groups?.get(1)?.value ?: UUID.randomUUID().toString()
+              println("Extracted DRM KID: $drmKid")
+
+              // DRM KID is in Hex format with dashes, need to convert to Base64
+              val drmKidBytes = drmKid.replace("-", "").chunked(2)
+                .map { it.toInt(16).toByte() }
+                .toByteArray()
+              val drmKidBase64 = Base64.encodeToString(drmKidBytes, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
+              println("Converted DRM KID to Base64: $drmKidBase64")
+
+              // Get DRM Key from License Server
+              val keyBase64 = getDRMKeysFromLicenseServer(
+                url = loadData.licenseUrl,
+                kid = drmKidBase64
+              )
+              println("Fetched DRM Key from License Server: $keyBase64")
+              if (keyBase64.isNotEmpty()) {
+                callback.invoke(
+                  newDrmExtractorLink(
+                    this.name,
+                    this.name,
+                    loadData.url,
+                    INFER_TYPE,
+                    CLEARKEY_UUID
+                  )
+                  {
+                    this.quality=Qualities.Unknown.value
+                    if (headers.isNotEmpty()) {
+                      this.headers = headers
+                    }
+                    this.key=keyBase64.trim()
+                    this.kid=drmKidBase64.trim()
+                  }
+                )
+                return true
+              }
+
+              callback.invoke(
+                newDrmExtractorLink(
+                  this.name,
+                  this.name,
+                  loadData.url,
+                  INFER_TYPE,
+                  CLEARKEY_UUID
+                )
+                {
+                  this.quality=Qualities.Unknown.value
+                  if (headers.isNotEmpty()) {
+                    this.headers = headers
+                  }
+                  this.licenseUrl=loadData.licenseUrl.trim()
+                }
+            )
+        } else {
                 // Fallback to regular MPD link if no DRM keys available
                 callback.invoke(
                     newExtractorLink(
@@ -325,12 +437,12 @@ class IptvPlaylistParser {
 
     private fun decodeHex(hexString: String?): String {
         if (hexString.isNullOrEmpty()) return ""
-        
+
         return try {
             // Remove any whitespace and ensure even length
             val cleanHex = hexString.trim().replace(" ", "")
             if (cleanHex.length % 2 != 0) return ""
-            
+
             //hexStringToByteArray
             val length = cleanHex.length
             val byteArray = ByteArray(length / 2)
@@ -366,7 +478,7 @@ class IptvPlaylistParser {
 
         while (i < allLines.size) {
             val line = allLines[i].trim()
-            
+
             if (line.isNotEmpty()) {
                 when {
                     line.startsWith(EXT_INF) -> {
@@ -374,14 +486,14 @@ class IptvPlaylistParser {
                         val title = line.getTitle()
                         val attributes = line.getAttributes()
                         println("Parsed title: $title, attributes: $attributes")
-                        
+
                         // Extract DRM keys from attributes if present
                         val keyFromAttr = attributes["key"] ?: attributes["drm-key"]
                         val keyidFromAttr = attributes["keyid"] ?: attributes["drm-keyid"] ?: attributes["kid"]
-                        
+
                         playlistItems.add(
                             PlaylistItem(
-                                title = title, 
+                                title = title,
                                 attributes = attributes,
                                 key = keyFromAttr,
                                 keyid = keyidFromAttr
@@ -423,7 +535,7 @@ class IptvPlaylistParser {
                             val item = playlistItems[currentIndex]
                             val licenseKey = line.removePrefix("#KODIPROP:inputstream.adaptive.license_key=").trim()
                             println("Extracted license key: $licenseKey")
-                            
+
                             // Check if license key is a URL
                             if (licenseKey.startsWith("http://") || licenseKey.startsWith("https://")) {
                                 println("Using License URL: $licenseKey")
@@ -435,7 +547,7 @@ class IptvPlaylistParser {
                                     licenseKey.contains(",") -> licenseKey.split(",")
                                     else -> listOf(licenseKey)
                                 }
-                                
+
                                 val keyid = decodeHex(parts.getOrNull(0))
                                 val key = decodeHex(parts.getOrNull(1))
                                 println("Decoded DRM keys - keyid: $keyid, key: $key")
@@ -449,24 +561,24 @@ class IptvPlaylistParser {
                         println("Found URL line: $line")
                         if (currentIndex >= 0 && currentIndex < playlistItems.size) {
                             val item = playlistItems[currentIndex]
-                            
+
                             // Handle multi-line URLs by accumulating lines until we find a complete URL or hit a comment
                             var fullLine = line
                             var j = i + 1
-                            
+
                             // Continue reading lines until we find a line that starts with # or we reach end of file
-                            while (j < allLines.size && 
-                                   !allLines[j].trim().startsWith("#") && 
+                            while (j < allLines.size &&
+                                   !allLines[j].trim().startsWith("#") &&
                                    allLines[j].trim().isNotEmpty()) {
                                 fullLine += allLines[j].trim()
                                 j++
                             }
-                            
+
                             println("Full URL line: $fullLine")
-                            
+
                             // Update index to skip the lines we've already processed
                             i = j - 1
-                            
+
                             val url = fullLine.getUrl()
                             val userAgent = fullLine.getUrlParameter("user-agent") ?: fullLine.getUrlParameter("User-agent")
                             val referrer = fullLine.getUrlParameter("referer") ?: fullLine.getUrlParameter("Referer")
@@ -475,11 +587,11 @@ class IptvPlaylistParser {
                             val key = fullLine.getUrlParameter("key")
                             val keyid = fullLine.getUrlParameter("keyid")
                             val licenseUrl = fullLine.getUrlParameter("licenseUrl")
-                            
+
                             println("Parsed URL: $url")
                             println("Parsed UserAgent: $userAgent")
                             println("Parsed Cookie: $cookie")
-                            
+
                             var urlHeaders = item.headers
                             if (referrer != null) {
                                 urlHeaders = urlHeaders + mapOf("referrer" to referrer)
@@ -487,7 +599,7 @@ class IptvPlaylistParser {
                             if (origin != null) {
                                 urlHeaders = urlHeaders + mapOf("origin" to origin)
                             }
-                            
+
                             playlistItems[currentIndex] =
                                 item.copy(
                                     url = url,
@@ -521,7 +633,7 @@ class IptvPlaylistParser {
     /**
      * Check if given content is valid M3U8 playlist.
      */
-    private fun String.isExtendedM3u(): Boolean = 
+    private fun String.isExtendedM3u(): Boolean =
         startsWith(EXT_M3U) || startsWith(EXT_INF) || startsWith("#KODIPROP")
 
     /**
@@ -538,18 +650,18 @@ class IptvPlaylistParser {
     private fun String.getTitle(): String? {
         val extInfRegex = Regex("(#EXTINF:.?[0-9]+)", RegexOption.IGNORE_CASE)
         val afterExtInf = replace(extInfRegex, "").trim()
-        
+
         // Find the last comma that's not inside quotes
         var lastCommaIndex = -1
         var insideQuotes = false
-        
+
         for (i in afterExtInf.indices) {
             when (afterExtInf[i]) {
                 '"' -> insideQuotes = !insideQuotes
                 ',' -> if (!insideQuotes) lastCommaIndex = i
             }
         }
-        
+
         return if (lastCommaIndex != -1 && lastCommaIndex < afterExtInf.length - 1) {
             afterExtInf.substring(lastCommaIndex + 1).trim().replaceQuotesAndTrim()
         } else {
@@ -617,10 +729,10 @@ class IptvPlaylistParser {
     private fun String.getUrlParameter(key: String): String? {
         val urlRegex = Regex("^(.*)\\|", RegexOption.IGNORE_CASE)
         val paramsString = replace(urlRegex, "").replaceQuotesAndTrim()
-        
+
         // Handle both & and | as parameter separators
         val paramSeparators = listOf("&", "|")
-        
+
         for (separator in paramSeparators) {
             val params = paramsString.split(separator)
             for (param in params) {
@@ -634,7 +746,7 @@ class IptvPlaylistParser {
                 }
             }
         }
-        
+
         // Fallback to regex approach for complex patterns
         val keyRegex = Regex("$key=([^&|]*)", RegexOption.IGNORE_CASE)
         return keyRegex.find(paramsString)?.groups?.get(1)?.value?.replaceQuotesAndTrim()
@@ -661,43 +773,43 @@ class IptvPlaylistParser {
     private fun String.getAttributes(): Map<String, String> {
         val extInfRegex = Regex("(#EXTINF:.?[0-9]+)", RegexOption.IGNORE_CASE)
         val afterExtInf = replace(extInfRegex, "").trim()
-        
+
         // Find the last comma that's not inside quotes to separate title from attributes
         var lastCommaIndex = -1
         var insideQuotes = false
-        
+
         for (i in afterExtInf.indices) {
             when (afterExtInf[i]) {
                 '"' -> insideQuotes = !insideQuotes
                 ',' -> if (!insideQuotes) lastCommaIndex = i
             }
         }
-        
+
         val attributesString = if (lastCommaIndex != -1) {
             afterExtInf.substring(0, lastCommaIndex).trim()
         } else {
             afterExtInf.trim()
         }
-        
+
         println("Attributes string: '$attributesString'")
-        
+
         val attributes = mutableMapOf<String, String>()
-        
+
         // Use regex to match key="value" or key=value patterns
         val attributeRegex = Regex("""(\w[-\w]*)\s*=\s*(?:"([^"]*)"|([^\s,]+))""", RegexOption.IGNORE_CASE)
-        
+
         attributeRegex.findAll(attributesString).forEach { matchResult ->
             val key = matchResult.groups[1]?.value ?: ""
             val quotedValue = matchResult.groups[2]?.value
             val unquotedValue = matchResult.groups[3]?.value
             val value = quotedValue ?: unquotedValue ?: ""
-            
+
             if (key.isNotEmpty()) {
                 attributes[key] = value.trim()
                 println("Found attribute: $key = $value")
             }
         }
-        
+
         return attributes
     }
 
