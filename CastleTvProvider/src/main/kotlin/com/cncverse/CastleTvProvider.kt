@@ -413,7 +413,7 @@ class CastleTvProvider : MainAPI() {
             val movieId = url.substringAfterLast('/')
             
             val securityKey = getSecurityKey() ?: return null
-            val detailsUrl = "$mainUrl/film-api/v1.1/movie?channel=IndiaA&clientType=1&clientType=1&lang=en-US&movieId=$movieId&packageName=com.external.castle"
+            val detailsUrl = "$mainUrl/film-api/v1.9.9/movie?channel=IndiaA&clientType=1&clientType=1&lang=en-US&movieId=$movieId&packageName=com.external.castle"
             
             val response = app.get(detailsUrl)
             val encryptedData = response.text
@@ -459,7 +459,7 @@ class CastleTvProvider : MainAPI() {
                             
                             try {
                                 // Fetch episodes for this season
-                                val seasonUrl = "$mainUrl/film-api/v1.1/movie?channel=IndiaA&clientType=1&clientType=1&lang=en-US&movieId=$seasonId&packageName=com.external.castle"
+                                val seasonUrl = "$mainUrl/film-api/v1.9.9/movie?channel=IndiaA&clientType=1&clientType=1&lang=en-US&movieId=$seasonId&packageName=com.external.castle"
                                 val seasonResponse = app.get(seasonUrl)
                                 val seasonEncryptedData = seasonResponse.text
                                 
