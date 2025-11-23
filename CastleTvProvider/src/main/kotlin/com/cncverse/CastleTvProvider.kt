@@ -17,7 +17,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 
 class CastleTvProvider : MainAPI() {
-    override var mainUrl = "https://api.fstcy.com"
+    override var mainUrl = "https://api.hlowb.com"
     override var name = "Castle TV (Use VLC)"
     override val hasMainPage = true
     override var lang = "ta"
@@ -568,9 +568,10 @@ class CastleTvProvider : MainAPI() {
             
             // Get available languages/tracks first to determine languageId
             val securityKey = getSecurityKey() ?: return false
-            val detailsUrl = "$mainUrl/film-api/v1.1/movie?channel=IndiaA&clientType=1&clientType=1&lang=en-US&movieId=$movieId&packageName=com.external.castle"
+            val detailsUrl = "$mainUrl/film-api/v1.9.9/movie?channel=IndiaA&clientType=1&clientType=1&lang=en-US&movieId=$movieId&packageName=com.external.castle"
             val detailsResponse = app.get(detailsUrl)
             val detailsDecrypted = decryptData(detailsResponse.text, securityKey) ?: return false
+            println("Decrypted Details JSON: $detailsDecrypted") // Debug log
             val details = mapper.readValue<MovieDetailsResponse>(detailsDecrypted).data
             
             // Find the episode to get available tracks
@@ -686,8 +687,28 @@ class CastleTvProvider : MainAPI() {
 
                     for (resolution in resolutions) {
                         try {
-                            val videoUrl = "$mainUrl/film-api/v1.9.1/movie/getVideo?apkSignKey=ED0955EB04E67A1D9F3305B95454FED485261475&channel=IndiaA&clientType=1&clientType=1&episodeId=$episodeId&lang=en-US&languageId=$languageId&mode=1&movieId=$movieId&packageName=com.external.castle&resolution=$resolution"
-                            val videoResponse = app.get(videoUrl)
+                            val videoUrl = "$mainUrl/film-api/v2.0.1/movie/getVideo2?clientType=1&packageName=com.external.castle&channel=IndiaA&lang=en-US"
+                            val postBody = """
+                                {
+                                "mode": "1",
+                                "appMarket": "GuanWang",
+                                "clientType": "1",
+                                "woolUser": "false",
+                                "apkSignKey": "ED0955EB04E67A1D9F3305B95454FED485261475",
+                                "androidVersion": "13",
+                                "languageId": "$languageId",
+                                "movieId": "$movieId",
+                                "episodeId": "$episodeId",
+                                "isNewUser": "true",
+                                "resolution": "$resolution",
+                                "packageName": "com.external.castle"
+                                }
+                            """.trimIndent()
+
+                            val videoResponse = app.post(
+                                url = videoUrl,
+                                requestBody = postBody.toRequestBody("application/json; charset=utf-8".toMediaType()),
+                            )
 
                             val encryptedData = videoResponse.text
 
@@ -696,6 +717,7 @@ class CastleTvProvider : MainAPI() {
                             }
 
                             val decryptedJson = decryptData(encryptedData, securityKey)
+                            println("Decrypted JSON: $decryptedJson") // Debug log
                             if (decryptedJson == null) {
                                 continue
                             }
