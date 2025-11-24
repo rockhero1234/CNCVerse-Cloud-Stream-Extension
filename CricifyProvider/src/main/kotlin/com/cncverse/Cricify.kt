@@ -441,32 +441,6 @@ class IptvPlaylistParser {
         return parseM3U(content.byteInputStream())
     }
 
-    private fun decodeHex(hexString: String?): String {
-        if (hexString.isNullOrEmpty()) return ""
-
-        return try {
-            // Remove any whitespace and ensure even length
-            val cleanHex = hexString.trim().replace(" ", "")
-            if (cleanHex.length % 2 != 0) return ""
-
-            //hexStringToByteArray
-            val length = cleanHex.length
-            val byteArray = ByteArray(length / 2)
-
-            for (i in 0 until length step 2) {
-                val firstDigit = Character.digit(cleanHex[i], 16)
-                val secondDigit = Character.digit(cleanHex[i + 1], 16)
-                if (firstDigit == -1 || secondDigit == -1) return ""
-                byteArray[i / 2] = ((firstDigit shl 4) + secondDigit).toByte()
-            }
-            //byteArrayToBase64
-            val base64ByteArray = base64Encode(byteArray)
-            base64ByteArray.trim()
-        } catch (e: Exception) {
-            ""
-        }
-    }
-
     /**
      * Parse M3U8 content [InputStream] into [Playlist]
      *
@@ -477,8 +451,15 @@ class IptvPlaylistParser {
     fun parseM3U(input: InputStream): Playlist {
         val allLines = input.bufferedReader().readLines()
         val playlistItems: MutableList<PlaylistItem> = mutableListOf()
-        var currentIndex = -1
         var i = 0
+
+        // Buffer for properties that accumulate before EXTINF
+        var bufferedCookie: String? = null
+        var bufferedUserAgent: String? = null
+        var bufferedHeaders: Map<String, String> = emptyMap()
+        var bufferedKey: String? = null
+        var bufferedKeyId: String? = null
+        var bufferedLicenseUrl: String? = null
 
         println("Parsing M3U with ${allLines.size} lines")
 
@@ -497,75 +478,105 @@ class IptvPlaylistParser {
                         val keyFromAttr = attributes["key"] ?: attributes["drm-key"]
                         val keyidFromAttr = attributes["keyid"] ?: attributes["drm-keyid"] ?: attributes["kid"]
 
+                        // Create new item with buffered properties applied
                         playlistItems.add(
                             PlaylistItem(
                                 title = title,
                                 attributes = attributes,
-                                key = keyFromAttr,
-                                keyid = keyidFromAttr
+                                key = bufferedKey ?: keyFromAttr,
+                                keyid = bufferedKeyId ?: keyidFromAttr,
+                                cookie = bufferedCookie,
+                                userAgent = bufferedUserAgent,
+                                headers = bufferedHeaders,
+                                licenseUrl = bufferedLicenseUrl
                             )
                         )
-                        currentIndex = playlistItems.size - 1
-                        println("Added playlist item, currentIndex: $currentIndex")
+                        println("Added playlist item with buffered properties, index: ${playlistItems.size - 1}")
+
+                        // Clear buffers after using them
+                        bufferedCookie = null
+                        bufferedUserAgent = null
+                        bufferedHeaders = emptyMap()
+                        bufferedKey = null
+                        bufferedKeyId = null
+                        bufferedLicenseUrl = null
                     }
                     line.startsWith("#EXTHTTP:") -> {
-                        // Parse JSON for cookie
-                        if (currentIndex >= 0 && currentIndex < playlistItems.size) {
-                            val item = playlistItems[currentIndex]
-                            val json = line.removePrefix("#EXTHTTP:").trim()
-                            val cookie = try {
-                                val map = parseJson<Map<String, String>>(json)
-                                map["cookie"]
-                            } catch (e: Exception) {
-                                null
-                            }
-                            playlistItems[currentIndex] = item.copy(cookie = cookie)
+                        // Parse JSON for cookie and buffer it
+                        val json = line.removePrefix("#EXTHTTP:").trim()
+                        val cookie = try {
+                            val map = parseJson<Map<String, String>>(json)
+                            map["cookie"]
+                        } catch (e: Exception) {
+                            null
                         }
+                        bufferedCookie = cookie
                     }
                     line.startsWith(EXT_VLC_OPT) -> {
-                        if (currentIndex >= 0 && currentIndex < playlistItems.size) {
-                            val item = playlistItems[currentIndex]
-                            val userAgent = line.getTagValue("http-user-agent")
-                            val referrer = line.getTagValue("http-referrer")
-                            val headers = if (referrer != null) {
-                                item.headers + mapOf("referrer" to referrer)
-                            } else item.headers
-                            playlistItems[currentIndex] =
-                                item.copy(userAgent = userAgent, headers = headers)
+                        // Buffer user agent and referrer
+                        val userAgent = line.getTagValue("http-user-agent")
+                        val referrer = line.getTagValue("http-referrer")
+
+                        bufferedUserAgent = userAgent ?: bufferedUserAgent
+                        if (referrer != null) {
+                            bufferedHeaders = bufferedHeaders + mapOf("referrer" to referrer)
                         }
                     }
                     line.startsWith("#KODIPROP:inputstream.adaptive.license_key=") -> {
-                        // Parse keyid and key from license_key
+                        // Parse keyid and key from license_key and buffer them
                         println("Found KODIPROP license_key line: $line")
-                        if (currentIndex >= 0 && currentIndex < playlistItems.size) {
-                            val item = playlistItems[currentIndex]
-                            val licenseKey = line.removePrefix("#KODIPROP:inputstream.adaptive.license_key=").trim()
-                            println("Extracted license key: $licenseKey")
+                        val licenseKey = line.removePrefix("#KODIPROP:inputstream.adaptive.license_key=").trim()
+                        println("Extracted license key: $licenseKey")
 
-                            // Check if license key is a URL
-                            if (licenseKey.startsWith("http://") || licenseKey.startsWith("https://")) {
-                                println("Using License URL: $licenseKey")
-                                playlistItems[currentIndex] = item.copy(licenseUrl = licenseKey)
-                            } else {
-                                // Handle different license key formats (hex encoded keys)
-                                val parts = when {
-                                    licenseKey.contains(":") -> licenseKey.split(":")
-                                    licenseKey.contains(",") -> licenseKey.split(",")
-                                    else -> listOf(licenseKey)
-                                }
-
-                                val keyid = decodeHex(parts.getOrNull(0))
-                                val key = decodeHex(parts.getOrNull(1))
-                                println("Decoded DRM keys - keyid: $keyid, key: $key")
-                                playlistItems[currentIndex] = item.copy(key = key, keyid = keyid)
-                            }
+                        // Check if license key is a URL
+                        if (licenseKey.startsWith("http://") || licenseKey.startsWith("https://")) {
+                            println("Using License URL: $licenseKey")
+                            bufferedLicenseUrl = licenseKey
                         } else {
-                            println("No current playlist item to add license key to")
+                            // Handle different license key formats (hex encoded keys)
+                            val parts = when {
+                                licenseKey.contains(":") -> licenseKey.split(":")
+                                licenseKey.contains(",") -> licenseKey.split(",")
+                                else -> listOf(licenseKey)
+                            }
+
+                          val drmKidBytes = parts.getOrNull(0)
+                            ?.replace("-", "")
+                            ?.chunked(2)
+                            ?.mapNotNull {
+                                try { it.toInt(16).toByte() }
+                                catch (e: NumberFormatException) { null }
+                            } ?.toByteArray()
+
+                          val drmKeyBytes = parts.getOrNull(1)
+                            ?.replace("-", "")?.chunked(2)
+                            ?.mapNotNull {
+                                try { it.toInt(16).toByte() }
+                                catch (e: NumberFormatException) { null }
+                            } ?.toByteArray()
+
+                          val drmKidBase64 = if (drmKidBytes != null)
+                              Base64.encodeToString(
+                                 drmKidBytes,
+                                 Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP
+                              ) else null
+
+                          val drmKeyBase64 = if (drmKeyBytes != null)
+                              Base64.encodeToString(
+                                 drmKeyBytes,
+                                 Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP
+                              ) else null
+
+                            println("Decoded DRM keys - keyid: $drmKidBase64, key: $drmKeyBase64")
+                            bufferedKey = drmKeyBase64
+                            bufferedKeyId = drmKidBase64
                         }
                     }
                     !line.startsWith("#") -> {
                         println("Found URL line: $line")
-                        if (currentIndex >= 0 && currentIndex < playlistItems.size) {
+                        // URL lines should be applied to the last created playlist item
+                        if (playlistItems.isNotEmpty()) {
+                            val currentIndex = playlistItems.size - 1
                             val item = playlistItems[currentIndex]
 
                             // Handle multi-line URLs by accumulating lines until we find a complete URL or hit a comment
@@ -621,7 +632,7 @@ class IptvPlaylistParser {
                                 )
                             println("Updated playlist item with URL and parameters")
                         } else {
-                            println("No current playlist item to add URL to")
+                            println("No playlist item to add URL to - URL appears before any EXTINF")
                         }
                     }
                 }
