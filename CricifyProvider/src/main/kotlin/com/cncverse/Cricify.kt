@@ -156,7 +156,8 @@ class Cricify(
                 val userAgent = channel.userAgent ?: ""
                 val cookie = channel.cookie ?: ""
                 val licenseUrl = channel.licenseUrl ?: ""
-                newLiveSearchResponse(channelname, LoadData(streamurl, channelname, posterurl, nation, key, keyid, userAgent, cookie, licenseUrl).toJson(), TvType.Live)
+                val headers = channel.headers
+                newLiveSearchResponse(channelname, LoadData(streamurl, channelname, posterurl, nation, key, keyid, userAgent, cookie, licenseUrl, headers).toJson(), TvType.Live)
                 {
                     this.posterUrl=posterurl
                     this.apiName
@@ -183,7 +184,7 @@ class Cricify(
                 val userAgent = channel.userAgent ?: ""
                 val cookie = channel.cookie ?: ""
                 val licenseUrl = channel.licenseUrl ?: ""
-            newLiveSearchResponse(channelname, LoadData(streamurl, channelname, posterurl, nation, key, keyid, userAgent, cookie, licenseUrl).toJson(), TvType.Live)
+            newLiveSearchResponse(channelname, LoadData(streamurl, channelname, posterurl, nation, key, keyid, userAgent, cookie, licenseUrl, headers).toJson(), TvType.Live)
             {
                 this.posterUrl=posterurl
                 this.apiName
@@ -210,6 +211,7 @@ class Cricify(
         val userAgent: String,
         val cookie: String,
         val licenseUrl: String,
+        val headers: Map<String, String>,
     )
     override suspend fun loadLinks(
         data: String,
@@ -221,6 +223,7 @@ class Cricify(
         if (loadData.url.contains("mpd"))
         {
             val headers = mutableMapOf<String, String>()
+            headers.putAll(loadData.headers)
             if (loadData.userAgent.isNotEmpty()) {
                 headers["User-Agent"] = loadData.userAgent
             }
@@ -333,6 +336,7 @@ class Cricify(
         else if(loadData.url.contains("&e=.m3u"))
             {
                 val headers = mutableMapOf<String, String>()
+                headers.putAll(loadData.headers)
                 if (loadData.userAgent.isNotEmpty()) {
                     headers["User-Agent"] = loadData.userAgent
                 }
@@ -358,6 +362,7 @@ class Cricify(
         else if(loadData.url.contains("play.php?"))
             {
                 val headers = mutableMapOf("User-Agent" to loadData.userAgent)
+                headers.putAll(loadData.headers)
                 if (loadData.cookie.isNotEmpty()) {
                     headers["Cookie"] = loadData.cookie
                 }
@@ -378,6 +383,7 @@ class Cricify(
         else
         {
             val headers = mutableMapOf<String, String>()
+            headers.putAll(loadData.headers)
             if (loadData.userAgent.isNotEmpty()) {
                 headers["User-Agent"] = loadData.userAgent
             }
@@ -580,10 +586,10 @@ class IptvPlaylistParser {
                             i = j - 1
 
                             val url = fullLine.getUrl()
-                            val userAgent = fullLine.getUrlParameter("user-agent") ?: fullLine.getUrlParameter("User-agent")
-                            val referrer = fullLine.getUrlParameter("referer") ?: fullLine.getUrlParameter("Referer")
-                            val cookie = fullLine.getUrlParameter("cookie") ?: fullLine.getUrlParameter("Cookie")
-                            val origin = fullLine.getUrlParameter("origin") ?: fullLine.getUrlParameter("Origin")
+                            val userAgent = fullLine.getUrlParameter("user-agent")
+                            val referrer = fullLine.getUrlParameter("referer")
+                            val cookie = fullLine.getUrlParameter("cookie")
+                            val origin = fullLine.getUrlParameter("origin")
                             val key = fullLine.getUrlParameter("key")
                             val keyid = fullLine.getUrlParameter("keyid")
                             val licenseUrl = fullLine.getUrlParameter("licenseUrl")
@@ -591,6 +597,9 @@ class IptvPlaylistParser {
                             println("Parsed URL: $url")
                             println("Parsed UserAgent: $userAgent")
                             println("Parsed Cookie: $cookie")
+                            println("Parsed Referrer: $referrer")
+                            println("Parsed Origin: $origin")
+
 
                             var urlHeaders = item.headers
                             if (referrer != null) {
@@ -608,7 +617,7 @@ class IptvPlaylistParser {
                                     cookie = cookie ?: item.cookie,
                                     key = key ?: item.key,
                                     keyid = keyid ?: item.keyid,
-                                    licenseUrl = licenseUrl ?: item.licenseUrl
+                                    licenseUrl = licenseUrl ?: item.licenseUrl,
                                 )
                             println("Updated playlist item with URL and parameters")
                         } else {
@@ -713,43 +722,25 @@ class IptvPlaylistParser {
 
    */
 
-    /**
-     * Get url parameter with key.
-     *
-     * Example:-
-     *
-     * Input:
-     * ```
-     * http://192.54.104.122:8080/d/abcdef/video.mp4|User-Agent=Mozilla&Referer=CustomReferrer
-     * ```
-     * If given key is `user-agent`, then
-     *
-     * Result: Mozilla
-     */
     private fun String.getUrlParameter(key: String): String? {
         val urlRegex = Regex("^(.*)\\|", RegexOption.IGNORE_CASE)
         val paramsString = replace(urlRegex, "").replaceQuotesAndTrim()
 
-        // Handle both & and | as parameter separators
-        val paramSeparators = listOf("&", "|")
+        // Split by & to get individual parameters
+        val params = paramsString.split("&")
 
-        for (separator in paramSeparators) {
-            val params = paramsString.split(separator)
-            for (param in params) {
-                val keyValuePair = param.split("=", limit = 2)
-                if (keyValuePair.size == 2) {
-                    val paramKey = keyValuePair[0].trim()
-                    val paramValue = keyValuePair[1].trim()
-                    if (paramKey.equals(key, ignoreCase = true)) {
-                        return paramValue.replaceQuotesAndTrim()
-                    }
+        for (param in params) {
+            val keyValuePair = param.split("=", limit = 2)
+            if (keyValuePair.size == 2) {
+                val paramKey = keyValuePair[0].trim()
+                val paramValue = keyValuePair[1].trim()
+                if (paramKey.equals(key, ignoreCase = true)) {
+                    return paramValue.replaceQuotesAndTrim()
                 }
             }
         }
 
-        // Fallback to regex approach for complex patterns
-        val keyRegex = Regex("$key=([^&|]*)", RegexOption.IGNORE_CASE)
-        return keyRegex.find(paramsString)?.groups?.get(1)?.value?.replaceQuotesAndTrim()
+        return null
     }
 
     /**
