@@ -32,7 +32,7 @@ cloudstream {
     )
     requiresResources = false
 
-    iconUrl = "https://github.com/NivinCNC/CNCVerse-Cloud-Stream-Extension/raw/refs/heads/master/PikashowProvider/icon.png"
+    iconUrl = "https://raw.githubusercontent.com/NivinCNC/CNCVerse-Cloud-Stream-Extension/refs/heads/master/PikashowProvider/logo.png"
 
     isCrossPlatform = true
 }
