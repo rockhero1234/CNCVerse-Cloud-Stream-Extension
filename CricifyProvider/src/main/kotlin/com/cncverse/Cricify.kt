@@ -169,7 +169,7 @@ class Cricify(
                 show,
                 isHorizontalImages = true
             )
-        })
+        },false)
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
