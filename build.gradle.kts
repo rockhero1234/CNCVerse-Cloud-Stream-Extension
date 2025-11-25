@@ -73,6 +73,8 @@ subprojects {
             buildConfigField("String", "MAL_API", "\"${getSecret("MAL_API")}\"")
             buildConfigField("String", "LIBRARY_PACKAGE_NAME", "\"com.cncverse\"")
             buildConfigField("String", "CRICIFY_PROVIDER_SECRET", "\"${getSecret("CRICIFY_PROVIDER_SECRET")}\"")
+            buildConfigField("String", "PIKASHOW_API_KEY", "\"${getSecret("PIKASHOW_API_KEY")}\"")
+            buildConfigField("String", "PIKASHOW_HMAC_SECRET", "\"${getSecret("PIKASHOW_HMAC_SECRET")}\"")
         }
 
         compileOptions {

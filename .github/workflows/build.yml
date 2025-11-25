@@ -50,11 +50,15 @@ jobs:
           MOVIEBOX_SECRET_KEY_ALT: ${{ secrets.MOVIEBOX_SECRET_KEY_ALT }}
           CASTLE_SUFFIX: ${{ secrets.CASTLE_SUFFIX }}
           CRICIFY_PROVIDER_SECRET: ${{ secrets.CRICIFY_PROVIDER_SECRET }}
+          PIKASHOW_API_KEY: ${{ secrets.PIKASHOW_API_KEY }}
+          PIKASHOW_HMAC_SECRET: ${{ secrets.PIKASHOW_HMAC_SECRET }}
         run: |
           cd $GITHUB_WORKSPACE/src
           echo CONSUMET_API=$CONSUMET_API >> local.properties
           echo BYPASS_API=$BYPASS_API >> local.properties
           echo SIMKL_API=$SIMKL_API >> local.properties
+          echo PIKASHOW_API_KEY=$PIKASHOW_API_KEY >> local.properties
+          echo PIKASHOW_HMAC_SECRET=$PIKASHOW_HMAC_SECRET >> local.properties
     
       - name: Build Plugins
         env:
@@ -62,6 +66,8 @@ jobs:
           MOVIEBOX_SECRET_KEY_ALT: ${{ secrets.MOVIEBOX_SECRET_KEY_ALT }}
           CASTLE_SUFFIX: ${{ secrets.CASTLE_SUFFIX }}
           CRICIFY_PROVIDER_SECRET: ${{ secrets.CRICIFY_PROVIDER_SECRET }}
+          PIKASHOW_API_KEY: ${{ secrets.PIKASHOW_API_KEY }}
+          PIKASHOW_HMAC_SECRET: ${{ secrets.PIKASHOW_HMAC_SECRET }}
         run: |
           cd $GITHUB_WORKSPACE/src
           chmod +x gradlew
