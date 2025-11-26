@@ -9,6 +9,9 @@ import com.lagradost.cloudstream3.utils.*
 import org.jsoup.nodes.Element
 import com.lagradost.nicehttp.NiceResponse
 import okhttp3.FormBody
+import android.content.Context
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class TamilUltraProvider : MainAPI() { // all providers must be an instance of MainAPI
     override var mainUrl = "https://cors.cncverse.workers.dev/https://tamilultratv.com"
@@ -20,10 +23,19 @@ class TamilUltraProvider : MainAPI() { // all providers must be an instance of M
         TvType.Live
     )
 
+    companion object {
+        var context: Context? = null
+    }
+
     override suspend fun getMainPage(
         page: Int,
         request: MainPageRequest
     ): HomePageResponse {
+        context?.let { ctx ->
+            withContext(Dispatchers.Main) {
+                StarPopupHelper.showStarPopupIfNeeded(ctx)
+            }
+        }
          val genreClasses = listOf(
             "genre_tamil-news" to "Tamil News",
             "genre_tamil-movies" to "Tamil Movies",

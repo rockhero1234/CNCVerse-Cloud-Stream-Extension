@@ -15,6 +15,9 @@ import java.nio.charset.StandardCharsets
 import org.jsoup.Jsoup
 import okio.GzipSource
 import org.json.JSONArray
+import android.content.Context
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class PikashowProvider : MainAPI() {
     override var mainUrl = "https://manoda.co"
@@ -25,6 +28,10 @@ class PikashowProvider : MainAPI() {
         TvType.Movie,
         TvType.TvSeries,
     )
+
+    companion object {
+        var context: Context? = null
+    }
 
     private val apiKey = BuildConfig.PIKASHOW_API_KEY
     private val hmacSecret = BuildConfig.PIKASHOW_HMAC_SECRET
@@ -194,6 +201,11 @@ class PikashowProvider : MainAPI() {
     }
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+        context?.let { ctx ->
+            withContext(Dispatchers.Main) {
+                StarPopupHelper.showStarPopupIfNeeded(ctx)
+            }
+        }
         val headers = getPikashowHeaders()
         val homePageList = mutableListOf<HomePageList>()
 

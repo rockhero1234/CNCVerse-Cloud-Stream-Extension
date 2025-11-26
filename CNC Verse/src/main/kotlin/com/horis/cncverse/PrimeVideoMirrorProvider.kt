@@ -1,5 +1,6 @@
 package com.horis.cncverse
 
+import android.content.Context
 import com.horis.cncverse.entities.EpisodesData
 import com.horis.cncverse.entities.PlayList
 import com.horis.cncverse.entities.PostData
@@ -21,6 +22,10 @@ import org.jsoup.nodes.Element
 import com.lagradost.cloudstream3.APIHolder.unixTime
 
 class PrimeVideoMirrorProvider : MainAPI() {
+    companion object {
+        var context: Context? = null
+    }
+    
     override val supportedTypes = setOf(
         TvType.Movie,
         TvType.TvSeries,
@@ -40,6 +45,9 @@ class PrimeVideoMirrorProvider : MainAPI() {
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse? {
+        // Show star popup on first visit (shared across all CNCVerse plugins)
+        context?.let { StarPopupHelper.showStarPopupIfNeeded(it) }
+        
         cookie_value = if(cookie_value.isEmpty()) bypass(mainUrl) else cookie_value
         val cookies = mapOf(
             "t_hash_t" to cookie_value,

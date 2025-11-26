@@ -1,11 +1,13 @@
 package com.Tamilian
 
-import com.lagradost.cloudstream3.plugins.BasePlugin
 import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
+import com.lagradost.cloudstream3.plugins.Plugin
+import android.content.Context
 
 @CloudstreamPlugin
-class HiAnimeProviderPlugin : BasePlugin() {
-    override fun load() {
+class HiAnimeProviderPlugin : Plugin() {
+    override fun load(context: Context) {
+        Tamilian.context = context
         registerMainAPI(Tamilian())
     }
 }

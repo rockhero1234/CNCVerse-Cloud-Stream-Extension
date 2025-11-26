@@ -15,6 +15,10 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 
 class MovieBoxProvider : MainAPI() {
+    companion object {
+        var context: android.content.Context? = null
+    }
+    
     override var mainUrl = "https://api.inmoviebox.com"
     override var name = "MovieBox"
     override val hasMainPage = true
@@ -108,6 +112,9 @@ class MovieBoxProvider : MainAPI() {
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+        // Show star popup on first visit (shared across all CNCVerse plugins)
+        context?.let { StarPopupHelper.showStarPopupIfNeeded(it) }
+        
         val url = "$mainUrl/wefeed-mobile-bff/subject-api/list"
         val pg = request.data?.toIntOrNull() ?: 1
         val jsonBody = """{"page": $pg, "perPage": 12, "rate": ["0", "10"], "genre": "All"}"""

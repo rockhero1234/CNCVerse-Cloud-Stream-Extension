@@ -23,8 +23,15 @@ import com.lagradost.cloudstream3.utils.newExtractorLink
 import org.json.JSONObject
 import org.jsoup.nodes.Element
 import com.lagradost.cloudstream3.utils.loadExtractor
+import android.content.Context
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class Watch32Provider : MainAPI() {
+
+    companion object {
+        var context: Context? = null
+    }
 
     override var mainUrl = "https://watch32.sx"
     override var name = "Watch32"
@@ -50,6 +57,11 @@ class Watch32Provider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest
     ): HomePageResponse {
+        context?.let { ctx ->
+            withContext(Dispatchers.Main) {
+                StarPopupHelper.showStarPopupIfNeeded(ctx)
+            }
+        }
         val doc = app.get("$mainUrl/${request.data}?page=$page", cacheTime = 60, timeout = 20).document
         val home = doc.select(".film_list-wrap .flw-item").mapNotNull { toResult(it) }
 

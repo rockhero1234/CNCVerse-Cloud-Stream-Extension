@@ -15,6 +15,7 @@ class CricifyPlugin: Plugin() {
     private var iptvProviders: List<Map<String, Any>> = emptyList()
 
     override fun load(context: Context) {
+        Cricify.context = context
         iptvProviders = runBlocking {
           ProviderManager.fetchProviders()
         }

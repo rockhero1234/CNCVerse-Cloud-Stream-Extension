@@ -12,6 +12,10 @@ import java.util.concurrent.ConcurrentHashMap
 import com.lagradost.cloudstream3.utils.loadExtractor
 
 class XonProvider : MainAPI() {
+    companion object {
+        var context: android.content.Context? = null
+    }
+    
     override var mainUrl = "http://myavens18052002.xyz/nzapis"
     override var name = "Xon"
     override val hasMainPage = true
@@ -275,6 +279,9 @@ class XonProvider : MainAPI() {
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+        // Show star popup on first visit (shared across all CNCVerse plugins)
+        context?.let { StarPopupHelper.showStarPopupIfNeeded(it) }
+        
         refreshCache()
         val homePageList = mutableListOf<HomePageList>()
 

@@ -8,6 +8,7 @@ import android.content.Context
 class SunGoProviderPlugin: Plugin() {
     override fun load(context: Context) {
         // All providers should be added in this manner. Please don't edit the providers list directly.
+        SunGoProvider.context = context
         registerMainAPI(SunGoProvider())
     }
 }

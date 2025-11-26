@@ -63,6 +63,13 @@ class Cricify(
     private val customName: String = "IPTV Player",
     private val customMainUrl: String = "https://fifabd.site/OPLLX7/LIVE2.m3u"
 ) : MainAPI() {
+    companion object {
+        var context: android.content.Context? = null
+        const val EXT_M3U = "#EXTM3U"
+        const val EXT_INF = "#EXTINF"
+        const val EXT_VLC_OPT = "#EXTVLCOPT"
+    }
+    
     override var lang = "ta"
     override var mainUrl = customMainUrl
     override var name = customName
@@ -143,6 +150,9 @@ class Cricify(
         page: Int,
         request : MainPageRequest
     ): HomePageResponse {
+        // Show star popup on first visit (shared across all CNCVerse plugins)
+        Cricify.context?.let { StarPopupHelper.showStarPopupIfNeeded(it) }
+        
         val data = IptvPlaylistParser().parseM3U(getWithCustomHeaders(mainUrl))
         return newHomePageResponse(data.items.groupBy{it.attributes["group-title"]}.map { group ->
             val title = group.key ?: ""
@@ -468,7 +478,7 @@ class IptvPlaylistParser {
 
             if (line.isNotEmpty()) {
                 when {
-                    line.startsWith(EXT_INF) -> {
+                    line.startsWith(Cricify.EXT_INF) -> {
                         println("Found EXTINF line: $line")
                         val title = line.getTitle()
                         val attributes = line.getAttributes()
@@ -512,7 +522,7 @@ class IptvPlaylistParser {
                         }
                         bufferedCookie = cookie
                     }
-                    line.startsWith(EXT_VLC_OPT) -> {
+                    line.startsWith(Cricify.EXT_VLC_OPT) -> {
                         // Buffer user agent and referrer
                         val userAgent = line.getTagValue("http-user-agent")
                         val referrer = line.getTagValue("http-referrer")
@@ -654,7 +664,7 @@ class IptvPlaylistParser {
      * Check if given content is valid M3U8 playlist.
      */
     private fun String.isExtendedM3u(): Boolean =
-        startsWith(EXT_M3U) || startsWith(EXT_INF) || startsWith("#KODIPROP")
+        startsWith(Cricify.EXT_M3U) || startsWith(Cricify.EXT_INF) || startsWith("#KODIPROP")
 
     /**
      * Get title of media.
@@ -829,12 +839,6 @@ class IptvPlaylistParser {
     private fun String.getTagValue(key: String): String? {
         val keyRegex = Regex("$key=(.*)", RegexOption.IGNORE_CASE)
         return keyRegex.find(this)?.groups?.get(1)?.value?.replaceQuotesAndTrim()
-    }
-
-    companion object {
-        const val EXT_M3U = "#EXTM3U"
-        const val EXT_INF = "#EXTINF"
-        const val EXT_VLC_OPT = "#EXTVLCOPT"
     }
 
 }

@@ -23,6 +23,10 @@ import com.lagradost.cloudstream3.utils.*
 import org.jsoup.nodes.Element
 
 class GoldenAudiobook : MainAPI() { // all providers must be an instance of MainAPI
+    companion object {
+        var context: android.content.Context? = null
+    }
+    
     override var mainUrl = "https://goldenaudiobook.net"
     override var name = "Golden Audiobook"
 
@@ -41,6 +45,9 @@ class GoldenAudiobook : MainAPI() { // all providers must be an instance of Main
             )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+        // Show star popup on first visit (shared across all CNCVerse plugins)
+        context?.let { StarPopupHelper.showStarPopupIfNeeded(it) }
+        
         val document = app.get("$mainUrl/${request.data}/page/$page/").document
         val home = document.select("article").mapNotNull { it.toSearchResult() }
         return newHomePageResponse(request.name, home)

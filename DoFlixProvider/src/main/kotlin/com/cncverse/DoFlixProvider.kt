@@ -1,5 +1,6 @@
 package com.cncverse
 
+import android.content.Context
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
 import com.fasterxml.jackson.annotation.JsonProperty
@@ -7,6 +8,10 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 
 class DoFlixProvider : MainAPI() {
+    companion object {
+        var context: Context? = null
+    }
+    
     override var mainUrl = "https://dooflixpanel.com"
     override var name = "DoFlix"
     override val hasMainPage = true
@@ -213,6 +218,9 @@ class DoFlixProvider : MainAPI() {
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse? {
+        // Show star popup on first visit (shared across all CNCVerse plugins)
+        context?.let { StarPopupHelper.showStarPopupIfNeeded(it) }
+        
         val response = app.get(request.data, headers = headers)
         val homeData = mapper.readValue<HomePageApiResponse>(response.text)
 

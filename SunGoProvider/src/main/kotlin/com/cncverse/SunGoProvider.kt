@@ -12,6 +12,10 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 
 class SunGoProvider : MainAPI() { // all providers must be an instance of MainAPI
+    companion object {
+        var context: android.content.Context? = null
+    }
+    
     override var mainUrl = "https://cors.cncverse.workers.dev/https://www.sungohd.com"
     override var name = "SunGo"
     override val hasMainPage = true
@@ -39,6 +43,9 @@ class SunGoProvider : MainAPI() { // all providers must be an instance of MainAP
         page: Int,
         request: MainPageRequest
     ): HomePageResponse {
+        // Show star popup on first visit (shared across all CNCVerse plugins)
+        context?.let { StarPopupHelper.showStarPopupIfNeeded(it) }
+        
         val genreClasses = listOf(
             "genre_tamil" to "Tamil",
             "genre_malayalam-tv" to "Malayalam TV",

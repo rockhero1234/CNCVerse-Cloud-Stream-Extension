@@ -15,6 +15,12 @@ import com.lagradost.cloudstream3.utils.getAndUnpack
 import com.lagradost.cloudstream3.utils.newExtractorLink
 
 
+import com.lagradost.cloudstream3.HomePageResponse
+import com.lagradost.cloudstream3.MainPageRequest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+
 class Tamilian : TmdbProvider() {
     override var name = "Tamilian"
     override val hasMainPage = true
@@ -28,7 +34,18 @@ class Tamilian : TmdbProvider() {
 
     companion object
     {
+        var context: android.content.Context? = null
         const val HOST="https://embedojo.net"
+    }
+    
+    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+        // Show star popup on first visit (shared across all CNCVerse plugins)
+        context?.let { ctx ->
+            withContext(Dispatchers.Main) {
+                StarPopupHelper.showStarPopupIfNeeded(ctx)
+            }
+        }
+        return super.getMainPage(page, request)
     }
 
     override suspend fun loadLinks(

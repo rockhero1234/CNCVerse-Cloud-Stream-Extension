@@ -18,6 +18,10 @@ import org.jsoup.Jsoup
 //import java.time.format.DateTimeFormatter
 
 class TamilDhoolProvider : MainAPI() { // all providers must be an instance of MainAPI
+    companion object {
+        var context: android.content.Context? = null
+    }
+    
     override var mainUrl = "https://www.tamildhool.net"
     override var name = "TamilDhool"
     override val hasMainPage = true
@@ -44,6 +48,9 @@ class TamilDhoolProvider : MainAPI() { // all providers must be an instance of M
         page: Int,
         request: MainPageRequest
     ): HomePageResponse {
+        // Show star popup on first visit (shared across all CNCVerse plugins)
+        context?.let { StarPopupHelper.showStarPopupIfNeeded(it) }
+        
         val query = request.data.format(page)
         val document = app.post(
             "$mainUrl/$query/",

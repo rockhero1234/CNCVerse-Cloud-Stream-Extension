@@ -8,6 +8,8 @@ import com.lagradost.cloudstream3.mvvm.safeApiCall
 import com.lagradost.cloudstream3.utils.*
 import android.util.Log
 import android.content.Context
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 
 class HDO : TmdbProvider() {
@@ -25,6 +27,19 @@ class HDO : TmdbProvider() {
     companion object {
          var cont: Context? = null
     }
+    
+    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+        // Show star popup on first home page visit (shared across all CNCVerse plugins)
+        cont?.let { context ->
+            withContext(Dispatchers.Main) {
+                StarPopupHelper.showStarPopupIfNeeded(context)
+            }
+        }
+        
+        // Call the parent implementation
+        return super.getMainPage(page, request)
+    }
+    
     override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
@@ -156,6 +171,7 @@ class HDO : TmdbProvider() {
             for (result in apiResponse.results) {
                 try {
                     val referer = result.headers["referer"] ?: result.headers["Referer"] ?: ""
+                    val headers = result.headers
                     
                     // If tracks are available, create a link for each quality
                     if (result.tracks.isNotEmpty()) {
@@ -171,6 +187,7 @@ class HDO : TmdbProvider() {
                                     ) {
                                         this.quality = quality
                                         this.referer = referer
+                                        this.headers = headers
                                     }
                                 )
                                 Log.d("HDOProvider", "Added link from ${result.provider}: ${quality}p")
@@ -187,6 +204,7 @@ class HDO : TmdbProvider() {
                             ) {
                                 this.quality = 720
                                 this.referer = referer
+                                this.headers = headers
                             }
                         )
                         Log.d("HDOProvider", "Added link from ${result.provider}: 720p (fallback)")

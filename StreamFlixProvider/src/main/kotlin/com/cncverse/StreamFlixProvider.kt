@@ -13,6 +13,10 @@ import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
 
 class StreamFlixProvider : MainAPI() {
+    companion object {
+        var context: android.content.Context? = null
+    }
+    
     override var mainUrl = "https://api.streamflix.app"
     override var name = "StreamFlix 2.0"
     override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
@@ -122,6 +126,9 @@ class StreamFlixProvider : MainAPI() {
     }
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+        // Show star popup on first visit (shared across all CNCVerse plugins)
+        context?.let { StarPopupHelper.showStarPopupIfNeeded(it) }
+        
         val items = mutableListOf<HomePageList>()
         
         try {

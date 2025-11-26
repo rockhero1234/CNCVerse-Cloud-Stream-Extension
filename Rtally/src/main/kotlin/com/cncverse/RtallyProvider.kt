@@ -32,6 +32,10 @@ import org.jsoup.nodes.Element
 //}
 
 class RtallyProvider : MainAPI() {
+    companion object {
+        var context: android.content.Context? = null
+    }
+    
     override var mainUrl = "https://www.rtally.site"
     override var name = "Rtally"
     override var lang = "ta"
@@ -62,6 +66,9 @@ class RtallyProvider : MainAPI() {
         page: Int,
         request: MainPageRequest
     ): HomePageResponse {
+        // Show star popup on first visit (shared across all CNCVerse plugins)
+        context?.let { StarPopupHelper.showStarPopupIfNeeded(it) }
+        
         val doc = app.get(
             "$mainUrl${request.data}?page=$page",
             cacheTime = 60,

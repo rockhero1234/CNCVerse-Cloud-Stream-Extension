@@ -9,6 +9,9 @@ import com.lagradost.cloudstream3.mvvm.safeApiCall
 import org.jsoup.nodes.Element
 import com.lagradost.nicehttp.NiceResponse
 import okhttp3.FormBody
+import android.content.Context
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class EinthusanProvider : MainAPI() { // all providers must be an instance of MainAPI
     override var mainUrl = "https://cors.cncverse.workers.dev/https://einthusan.tv"
@@ -21,6 +24,10 @@ class EinthusanProvider : MainAPI() { // all providers must be an instance of Ma
     override val supportedTypes = setOf(
         TvType.Movie
     )
+
+    companion object {
+        var context: Context? = null
+    }
 
     override val mainPage = mainPageOf(
         "$mainUrl/movie/results/?find=Recent&lang=tamil" to "Tamil Movies",
@@ -37,6 +44,11 @@ class EinthusanProvider : MainAPI() { // all providers must be an instance of Ma
         page: Int,
         request: MainPageRequest
     ): HomePageResponse {
+        context?.let { ctx ->
+            withContext(Dispatchers.Main) {
+                StarPopupHelper.showStarPopupIfNeeded(ctx)
+            }
+        }
         val document = if (page == 1) {
             app.get(request.data).document
         } else {
