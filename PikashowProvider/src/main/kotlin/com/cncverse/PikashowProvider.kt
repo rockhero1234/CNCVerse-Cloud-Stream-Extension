@@ -201,7 +201,7 @@ class PikashowProvider : MainAPI() {
             // Fetch different categories
             val categories = listOf(
                 "series" to "TV Series",
-                "hollywood" to "Hollywood Movies", 
+                "hollywood" to "Hollywood Movies",
                 "bollywood" to "Bollywood Movies"
             )
 
@@ -237,7 +237,7 @@ class PikashowProvider : MainAPI() {
                                                 this.quality = SearchQuality.HD // Default for series
                                             }
                                         }
-                                    }?.sortedByDescending { it.year } ?: emptyList()
+                                    }?.asReversed() ?: emptyList() // show last response first
                                 } catch (e: Exception) {
                                     println("Error parsing series response: ${e.message}")
                                     emptyList()
@@ -258,7 +258,7 @@ class PikashowProvider : MainAPI() {
                                                 this.quality = getQualityFromString(movie.quality)
                                             }
                                         }
-                                    }?.sortedByDescending { it.year } ?: emptyList()
+                                    }?.asReversed() ?: emptyList() // show last response first
                                 } catch (e: Exception) {
                                     println("Error parsing movie response: ${e.message}")
                                     emptyList()
