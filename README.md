@@ -1,3 +1,11 @@
+### ❤️ Support
+
+If you find this project helpful, consider supporting its development!
+
+<a href="[https://www.buymeacoffee.com/appcraftstudio](https://buymeacoffee.com/nivincnc)" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+
+Your support helps keep this project alive and enables continued maintanance of providers addition of new providers.
+
 ### 🕹 Tools and Programming languages used :
 <p align="left">
   <a href="https://skillicons.dev">
@@ -18,14 +26,6 @@ Cloud Stream ( To install : [View Docs](https://recloudstream.github.io/csdocs/)
 3) Manual Install (Copy and Paste in add Repo of Cloud Stream) :
 
         https://raw.githubusercontent.com/NivinCNC/CNCVerse-Cloud-Stream-Extension/refs/heads/builds/CNC.json
-
-### ❤️ Support
-
-If you find this project helpful, consider supporting its development!
-
-[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-red?style=for-the-badge&logo=github-sponsors)](https://github.com/sponsors/NivinCNC)
-
-Your support helps keep this project alive and enables continued maintanance of providers addition of new providers.
 
 ### License
 [![GNU GPLv3 Image](https://www.gnu.org/graphics/gplv3-127x51.png)](http://www.gnu.org/licenses/gpl-3.0.en.html)
