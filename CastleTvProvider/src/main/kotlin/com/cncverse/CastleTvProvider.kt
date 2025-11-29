@@ -339,8 +339,9 @@ class CastleTvProvider : MainAPI() {
                     val title = content.title ?: return@mapNotNull null
                     val id = content.redirectId?.toString() ?: return@mapNotNull null
                     val coverImg = content.coverImage
+                    // movieType: 1=TvSeries, 2=Movie, 3=Reality Shows, 5=Anime
                     val type = when (content.movieType) {
-                        1 -> TvType.TvSeries
+                        1, 3, 5 -> TvType.TvSeries // Series, Reality Shows, Anime
                         2 -> TvType.Movie
                         else -> TvType.Movie
                     }
@@ -393,8 +394,9 @@ class CastleTvProvider : MainAPI() {
                 val title = item.title ?: return@mapNotNull null
                 val id = item.id?.toString() ?: return@mapNotNull null
                 val posterUrl = item.coverVerticalImage ?: item.coverHorizontalImage
+                // movieType: 1=TvSeries, 2=Movie, 3=Reality Shows, 5=Anime
                 val type = when (item.movieType) {
-                    1 -> TvType.TvSeries
+                    1, 3, 5 -> TvType.TvSeries // Series, Reality Shows, Anime
                     2 -> TvType.Movie
                     else -> TvType.Movie
                 }
@@ -454,8 +456,13 @@ class CastleTvProvider : MainAPI() {
             }
             val recommendations = emptyList<SearchResponse>() // Can be populated later if needed
             
-            when (details.movieType) {
-                1 -> { // TV Series
+            // Determine if this is series-like content (has multiple episodes) or a movie
+            // movieType: 1=TvSeries, 2=Movie, 3=Reality Shows, 5=Anime
+            val isSeriesLike = details.movieType == 1 || details.movieType == 3 || details.movieType == 5 || 
+                               (details.episodes?.size ?: 0) > 1
+            
+            when {
+                isSeriesLike -> { // TV Series, Reality Shows, Anime (anything with episodes)
                     val allEpisodes = mutableListOf<com.lagradost.cloudstream3.Episode>()
                     
                     // If there are multiple seasons, fetch episodes for each season
@@ -528,7 +535,7 @@ class CastleTvProvider : MainAPI() {
                         }
                     }
                 }
-                2 -> { // Movie
+                else -> { // Movie (movieType 2 or single episode content)
                     val episode = details.episodes?.firstOrNull()
                     newMovieLoadResponse(
                         name = title,
@@ -546,9 +553,6 @@ class CastleTvProvider : MainAPI() {
                         this.recommendations = recommendations
                         this.duration = episode?.duration?.div(60) // Convert seconds to minutes
                     }
-                }
-                else -> {
-                    null
                 }
             }
             
@@ -579,7 +583,6 @@ class CastleTvProvider : MainAPI() {
             val detailsUrl = "$mainUrl/film-api/v1.9.9/movie?channel=IndiaA&clientType=1&clientType=1&lang=en-US&movieId=$movieId&packageName=com.external.castle"
             val detailsResponse = app.get(detailsUrl)
             val detailsDecrypted = decryptData(detailsResponse.text, securityKey) ?: return false
-            println("Decrypted Details JSON: $detailsDecrypted") // Debug log
             val details = mapper.readValue<MovieDetailsResponse>(detailsDecrypted).data
             
             // Find the episode to get available tracks
