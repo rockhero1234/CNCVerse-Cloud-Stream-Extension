@@ -16,6 +16,12 @@ class CricifyPlugin: Plugin() {
 
     override fun load(context: Context) {
         Cricify.context = context
+        LiveEventsProvider.context = context
+        
+        // Always register Live Events provider first (unremovable)
+        registerMainAPI(LiveEventsProvider())
+        
+        // Fetch IPTV providers from cats.txt
         iptvProviders = runBlocking {
           ProviderManager.fetchProviders()
         }

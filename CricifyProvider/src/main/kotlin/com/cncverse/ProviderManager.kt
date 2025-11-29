@@ -14,9 +14,40 @@ data class ProviderData(
     val catLink: String?
 )
 
+// Data classes for Live Events
+data class LiveEventData(
+    val id: Int,
+    val title: String,
+    val image: String?,
+    val slug: String,
+    val cat: String?,
+    val eventInfo: LiveEventInfo?,
+    val publish: Int,
+    val formats: List<LiveEventFormat>?
+)
+
+data class LiveEventInfo(
+    val teamA: String?,
+    val teamB: String?,
+    val teamAFlag: String?,
+    val teamBFlag: String?,
+    val eventCat: String?,
+    val eventName: String?,
+    val eventLogo: String?,
+    val isHot: String?,
+    val eventType: String?,
+    val startTime: String?,
+    val endTime: String?
+)
+
+data class LiveEventFormat(
+    val title: String?,
+    val webLink: String?
+)
+
 object ProviderManager {
     // Default fallback URL (will be replaced by Firebase Remote Config)
-    private const val DEFAULT_PROVIDERS_URL = "https://cfymarkscanjiostar80.top/cats.txt"
+    private const val DEFAULT_BASE_URL = "https://cfymarkscanjiostar80.top"
     
     // Cached base URL from Firebase
     private var cachedBaseUrl: String? = null
@@ -30,26 +61,43 @@ object ProviderManager {
     private val fallbackProviders = listOf(
         mapOf("id" to 13, "title" to "TATA PLAY", "image" to "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQz_qYe3Y4S5bXXVlPtXQnqtAkLw1-no57QHhPyMgWE0SQmxujzHxZKiDs&s=10", "catLink" to "https://hotstarlive.delta-cloud.workers.dev/?token=a13d9c-4b782a-6c90fd-9a1b84"),
         mapOf("id" to 14, "title" to "HOTSTAR", "image" to "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRWwYjMvB58DMLsL9Ii2fhvw6NBYvD1iVCjOMU8TXBLJt0eibLGOjoRkLJP&s=10", "catLink" to "https://hotstar-live-event.alpha-circuit.workers.dev/?token=154dc5-7a9126-56996d-1fa267"),
-       
     )
+    
+    /**
+     * Gets the base URL from Firebase Remote Config
+     * Falls back to default URL if Firebase fetch fails
+     */
+    suspend fun getBaseUrl(): String {
+        // Return cached URL if available
+        cachedBaseUrl?.let { return it }
+        
+        // Try to fetch from Firebase Remote Config
+        val firebaseUrl = FirebaseRemoteConfigFetcher.getProviderApiUrl()
+        if (!firebaseUrl.isNullOrBlank()) {
+            cachedBaseUrl = firebaseUrl.trimEnd('/')
+            return cachedBaseUrl!!
+        }
+        
+        // Fall back to default URL
+        cachedBaseUrl = DEFAULT_BASE_URL
+        return DEFAULT_BASE_URL
+    }
     
     /**
      * Gets the providers URL by fetching from Firebase Remote Config first
      * Falls back to default URL if Firebase fetch fails
      */
     private suspend fun getProvidersUrl(): String {
-        // Return cached URL if available
-        cachedBaseUrl?.let { return "${it}cats.txt" }
-        
-        // Try to fetch from Firebase Remote Config
-        val firebaseUrl = FirebaseRemoteConfigFetcher.getProviderApiUrl()
-        if (!firebaseUrl.isNullOrBlank()) {
-            cachedBaseUrl = firebaseUrl.trimEnd('/')
-            return "${cachedBaseUrl}/cats.txt"
-        }
-        
-        // Fall back to default URL
-        return DEFAULT_PROVIDERS_URL
+        val baseUrl = getBaseUrl()
+        return "$baseUrl/cats.txt"
+    }
+    
+    /**
+     * Gets the live events URL
+     */
+    private suspend fun getLiveEventsUrl(): String {
+        val baseUrl = getBaseUrl()
+        return "$baseUrl/categories/live-events.txt"
     }
     
     suspend fun fetchProviders(): List<Map<String, Any>> {
@@ -91,6 +139,39 @@ object ProviderManager {
             }
             // Return fallback providers if fetching fails
             fallbackProviders
+        }
+    }
+    
+    /**
+     * Fetches live events from the API
+     * Uses the same base URL as providers (from Firebase or fallback)
+     */
+    suspend fun fetchLiveEvents(): List<LiveEventData> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val liveEventsUrl = getLiveEventsUrl()
+                
+                val request = Request.Builder()
+                    .url(liveEventsUrl)
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                    .build()
+                
+                val response = client.newCall(request).execute()
+                if (response.isSuccessful) {
+                    val encryptedData = response.body?.string()
+                    if (!encryptedData.isNullOrBlank()) {
+                        val decryptedData = CryptoUtils.decryptData(encryptedData.trim())
+                        if (!decryptedData.isNullOrBlank()) {
+                            val events = parseJson<List<LiveEventData>>(decryptedData)
+                            // Filter only published events
+                            return@withContext events?.filter { it.publish == 1 } ?: emptyList()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            emptyList()
         }
     }
 }
