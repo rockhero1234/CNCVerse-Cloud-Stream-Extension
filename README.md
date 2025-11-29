@@ -2,7 +2,7 @@
 
 If you find this project helpful, consider supporting its development!
 
-<a href="[https://www.buymeacoffee.com/appcraftstudio](https://buymeacoffee.com/nivincnc)" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+<a href="https://buymeacoffee.com/nivincnc" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
 
 Your support helps keep this project alive and enables continued maintanance of providers addition of new providers.
 
