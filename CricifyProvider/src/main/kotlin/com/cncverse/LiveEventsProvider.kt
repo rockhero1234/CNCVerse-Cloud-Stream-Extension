@@ -102,6 +102,61 @@ class LiveEventsProvider : MainAPI() {
         }
     }
 
+    // Check if event is currently live
+    private fun isEventLive(event: LiveEventData): Boolean {
+        val eventInfo = event.eventInfo ?: return false
+        val now = System.currentTimeMillis()
+        
+        return try {
+            val dateFormat = SimpleDateFormat("yyyy/MM/dd HH:mm:ss Z", Locale.US)
+            val startTime = eventInfo.startTime?.let { dateFormat.parse(it)?.time } ?: return false
+            val endTime = eventInfo.endTime?.let { dateFormat.parse(it)?.time } ?: return false
+            now in startTime..endTime
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Generate a match card poster URL using the CNCVerse API
+     * API: https://live-card-cncverse.vercel.app/api/match-card
+     */
+    private fun generateMatchCardUrl(event: LiveEventData): String {
+        val eventInfo = event.eventInfo
+        
+        val title = java.net.URLEncoder.encode(eventInfo?.eventName ?: event.title, "UTF-8")
+        val teamA = java.net.URLEncoder.encode(eventInfo?.teamA ?: "Team A", "UTF-8")
+        val teamB = java.net.URLEncoder.encode(eventInfo?.teamB ?: "Team B", "UTF-8")
+        val teamAImg = eventInfo?.teamAFlag ?: ""
+        val teamBImg = eventInfo?.teamBFlag ?: ""
+        val eventLogo = eventInfo?.eventLogo ?: ""
+        val isLive = isEventLive(event)
+        
+        // Format time for display
+        val time = try {
+            eventInfo?.startTime?.let {
+            val dateFormat = SimpleDateFormat("yyyy/MM/dd HH:mm:ss Z", Locale.US)
+            val displayFormat = SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.US)
+            val date = dateFormat.parse(it)
+            date?.let { d -> java.net.URLEncoder.encode(displayFormat.format(d), "UTF-8") } ?: ""
+            } ?: ""
+        } catch (e: Exception) {
+            ""
+        }
+        
+        return buildString {
+            append("https://live-card-cncverse.vercel.app/api/match-card?")
+            append("title=$title")
+            append("&teamA=$teamA")
+            append("&teamB=$teamB")
+            if (teamAImg.isNotBlank()) append("&teamAImg=$teamAImg")
+            if (teamBImg.isNotBlank()) append("&teamBImg=$teamBImg")
+            if (eventLogo.isNotBlank()) append("&eventLogo=$eventLogo")
+            if (time.isNotBlank()) append("&time=$time")
+            append("&isLive=$isLive")
+        }
+    }
+
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         // Show star popup on first visit
         LiveEventsProvider.context?.let { StarPopupHelper.showStarPopupIfNeeded(it) }
@@ -135,13 +190,8 @@ class LiveEventsProvider : MainAPI() {
                                                 if (status.isNotBlank()) "$status $displayTitle"
                                                 else displayTitle
 
-                                        val posterUrl =
-                                                event.eventInfo?.teamAFlag
-                                                        ?: event.eventInfo?.eventLogo
-                                                                ?: event.image?.takeIf {
-                                                            it != "null" && it != "nullh"
-                                                        }
-                                                                ?: ""
+                                        // Use match card API for poster
+                                        val posterUrl = generateMatchCardUrl(event)
 
                                         val loadData =
                                                 LiveEventLoadData(
@@ -202,11 +252,8 @@ class LiveEventsProvider : MainAPI() {
                     val fullTitle =
                             if (status.isNotBlank()) "$status $displayTitle" else displayTitle
 
-                    val posterUrl =
-                            event.eventInfo?.teamAFlag
-                                    ?: event.eventInfo?.eventLogo
-                                            ?: event.image?.takeIf { it != "null" && it != "nullh" }
-                                            ?: ""
+                    // Use match card API for poster
+                    val posterUrl = generateMatchCardUrl(event)
 
                     val loadData =
                             LiveEventLoadData(
