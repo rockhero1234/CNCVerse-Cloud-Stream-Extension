@@ -463,13 +463,15 @@ class IptvPlaylistParser {
         val playlistItems: MutableList<PlaylistItem> = mutableListOf()
         var i = 0
 
-        // Buffer for properties that accumulate before EXTINF
+        // Buffer for all properties - accumulate until URL line is found
         var bufferedCookie: String? = null
         var bufferedUserAgent: String? = null
         var bufferedHeaders: Map<String, String> = emptyMap()
         var bufferedKey: String? = null
         var bufferedKeyId: String? = null
         var bufferedLicenseUrl: String? = null
+        var bufferedTitle: String? = null
+        var bufferedAttributes: Map<String, String> = emptyMap()
 
         println("Parsing M3U with ${allLines.size} lines")
 
@@ -480,54 +482,39 @@ class IptvPlaylistParser {
                 when {
                     line.startsWith(Cricify.EXT_INF) -> {
                         println("Found EXTINF line: $line")
-                        val title = line.getTitle()
-                        val attributes = line.getAttributes()
-                        println("Parsed title: $title, attributes: $attributes")
+                        bufferedTitle = line.getTitle()
+                        bufferedAttributes = line.getAttributes()
+                        println("Parsed title: $bufferedTitle, attributes: $bufferedAttributes")
 
                         // Extract DRM keys from attributes if present
-                        val keyFromAttr = attributes["key"] ?: attributes["drm-key"]
-                        val keyidFromAttr = attributes["keyid"] ?: attributes["drm-keyid"] ?: attributes["kid"]
-
-                        // Create new item with buffered properties applied
-                        playlistItems.add(
-                            PlaylistItem(
-                                title = title,
-                                attributes = attributes,
-                                key = bufferedKey ?: keyFromAttr,
-                                keyid = bufferedKeyId ?: keyidFromAttr,
-                                cookie = bufferedCookie,
-                                userAgent = bufferedUserAgent,
-                                headers = bufferedHeaders,
-                                licenseUrl = bufferedLicenseUrl
-                            )
-                        )
-                        println("Added playlist item with buffered properties, index: ${playlistItems.size - 1}")
-
-                        // Clear buffers after using them
-                        bufferedCookie = null
-                        bufferedUserAgent = null
-                        bufferedHeaders = emptyMap()
-                        bufferedKey = null
-                        bufferedKeyId = null
-                        bufferedLicenseUrl = null
+                        val keyFromAttr = bufferedAttributes["key"] ?: bufferedAttributes["drm-key"]
+                        val keyidFromAttr = bufferedAttributes["keyid"] ?: bufferedAttributes["drm-keyid"] ?: bufferedAttributes["kid"]
+                        
+                        // Only use attribute keys if no buffered keys exist
+                        if (bufferedKey == null) bufferedKey = keyFromAttr
+                        if (bufferedKeyId == null) bufferedKeyId = keyidFromAttr
                     }
                     line.startsWith("#EXTHTTP:") -> {
-                        // Parse JSON for cookie and buffer it
+                        // Parse JSON for cookie and user-agent, buffer them
                         val json = line.removePrefix("#EXTHTTP:").trim()
-                        val cookie = try {
+                        try {
                             val map = parseJson<Map<String, String>>(json)
-                            map["cookie"]
+                            if (map.containsKey("cookie")) {
+                                bufferedCookie = map["cookie"]
+                            }
+                            if (map.containsKey("user-agent")) {
+                                bufferedUserAgent = map["user-agent"]
+                            }
                         } catch (e: Exception) {
-                            null
+                            // Ignore parsing errors
                         }
-                        bufferedCookie = cookie
                     }
                     line.startsWith(Cricify.EXT_VLC_OPT) -> {
                         // Buffer user agent and referrer
                         val userAgent = line.getTagValue("http-user-agent")
                         val referrer = line.getTagValue("http-referrer")
 
-                        bufferedUserAgent = userAgent ?: bufferedUserAgent
+                        if (userAgent != null) bufferedUserAgent = userAgent
                         if (referrer != null) {
                             bufferedHeaders = bufferedHeaders + mapOf("referrer" to referrer)
                         }
@@ -550,100 +537,110 @@ class IptvPlaylistParser {
                                 else -> listOf(licenseKey)
                             }
 
-                          val drmKidBytes = parts.getOrNull(0)
-                            ?.replace("-", "")
-                            ?.chunked(2)
-                            ?.mapNotNull {
-                                try { it.toInt(16).toByte() }
-                                catch (e: NumberFormatException) { null }
-                            } ?.toByteArray()
+                            val drmKidBytes = parts.getOrNull(0)
+                                ?.replace("-", "")
+                                ?.chunked(2)
+                                ?.mapNotNull {
+                                    try { it.toInt(16).toByte() }
+                                    catch (e: NumberFormatException) { null }
+                                }?.toByteArray()
 
-                          val drmKeyBytes = parts.getOrNull(1)
-                            ?.replace("-", "")?.chunked(2)
-                            ?.mapNotNull {
-                                try { it.toInt(16).toByte() }
-                                catch (e: NumberFormatException) { null }
-                            } ?.toByteArray()
+                            val drmKeyBytes = parts.getOrNull(1)
+                                ?.replace("-", "")
+                                ?.chunked(2)
+                                ?.mapNotNull {
+                                    try { it.toInt(16).toByte() }
+                                    catch (e: NumberFormatException) { null }
+                                }?.toByteArray()
 
-                          val drmKidBase64 = if (drmKidBytes != null)
-                              Base64.encodeToString(
-                                 drmKidBytes,
-                                 Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP
-                              ) else null
+                            val drmKidBase64 = if (drmKidBytes != null && drmKidBytes.isNotEmpty())
+                                Base64.encodeToString(
+                                    drmKidBytes,
+                                    Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP
+                                ) else null
 
-                          val drmKeyBase64 = if (drmKeyBytes != null)
-                              Base64.encodeToString(
-                                 drmKeyBytes,
-                                 Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP
-                              ) else null
+                            val drmKeyBase64 = if (drmKeyBytes != null && drmKeyBytes.isNotEmpty())
+                                Base64.encodeToString(
+                                    drmKeyBytes,
+                                    Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP
+                                ) else null
 
                             println("Decoded DRM keys - keyid: $drmKidBase64, key: $drmKeyBase64")
-                            bufferedKey = drmKeyBase64
-                            bufferedKeyId = drmKidBase64
+                            if (drmKeyBase64 != null) bufferedKey = drmKeyBase64
+                            if (drmKidBase64 != null) bufferedKeyId = drmKidBase64
                         }
                     }
                     !line.startsWith("#") -> {
+                        // URL line - now create the PlaylistItem with all buffered properties
                         println("Found URL line: $line")
-                        // URL lines should be applied to the last created playlist item
-                        if (playlistItems.isNotEmpty()) {
-                            val currentIndex = playlistItems.size - 1
-                            val item = playlistItems[currentIndex]
 
-                            // Handle multi-line URLs by accumulating lines until we find a complete URL or hit a comment
-                            var fullLine = line
-                            var j = i + 1
+                        // Handle multi-line URLs by accumulating lines until we find a complete URL or hit a comment
+                        var fullLine = line
+                        var j = i + 1
 
-                            // Continue reading lines until we find a line that starts with # or we reach end of file
-                            while (j < allLines.size &&
-                                   !allLines[j].trim().startsWith("#") &&
-                                   allLines[j].trim().isNotEmpty()) {
-                                fullLine += allLines[j].trim()
-                                j++
-                            }
-
-                            println("Full URL line: $fullLine")
-
-                            // Update index to skip the lines we've already processed
-                            i = j - 1
-
-                            val url = fullLine.getUrl()
-                            val userAgent = fullLine.getUrlParameter("user-agent")
-                            val referrer = fullLine.getUrlParameter("referer")
-                            val cookie = fullLine.getUrlParameter("cookie")
-                            val origin = fullLine.getUrlParameter("origin")
-                            val key = fullLine.getUrlParameter("key")
-                            val keyid = fullLine.getUrlParameter("keyid")
-                            val licenseUrl = fullLine.getUrlParameter("licenseUrl")
-
-                            println("Parsed URL: $url")
-                            println("Parsed UserAgent: $userAgent")
-                            println("Parsed Cookie: $cookie")
-                            println("Parsed Referrer: $referrer")
-                            println("Parsed Origin: $origin")
-
-
-                            var urlHeaders = item.headers
-                            if (referrer != null) {
-                                urlHeaders = urlHeaders + mapOf("referrer" to referrer)
-                            }
-                            if (origin != null) {
-                                urlHeaders = urlHeaders + mapOf("origin" to origin)
-                            }
-
-                            playlistItems[currentIndex] =
-                                item.copy(
-                                    url = url,
-                                    headers = urlHeaders,
-                                    userAgent = userAgent ?: item.userAgent,
-                                    cookie = cookie ?: item.cookie,
-                                    key = key ?: item.key,
-                                    keyid = keyid ?: item.keyid,
-                                    licenseUrl = licenseUrl ?: item.licenseUrl,
-                                )
-                            println("Updated playlist item with URL and parameters")
-                        } else {
-                            println("No playlist item to add URL to - URL appears before any EXTINF")
+                        // Continue reading lines until we find a line that starts with # or we reach end of file
+                        while (j < allLines.size &&
+                               !allLines[j].trim().startsWith("#") &&
+                               allLines[j].trim().isNotEmpty()) {
+                            fullLine += allLines[j].trim()
+                            j++
                         }
+
+                        println("Full URL line: $fullLine")
+
+                        // Update index to skip the lines we've already processed
+                        i = j - 1
+
+                        // Parse URL and its pipe-separated parameters
+                        val url = fullLine.getUrl()
+                        val urlUserAgent = fullLine.getUrlParameter("user-agent")
+                        val urlReferrer = fullLine.getUrlParameter("referer")
+                        val urlCookie = fullLine.getUrlParameter("cookie")
+                        val urlOrigin = fullLine.getUrlParameter("origin")
+                        val urlKey = fullLine.getUrlParameter("key")
+                        val urlKeyid = fullLine.getUrlParameter("keyid")
+                        val urlLicenseUrl = fullLine.getUrlParameter("licenseUrl")
+
+                        println("Parsed URL: $url")
+                        println("Parsed UserAgent: $urlUserAgent")
+                        println("Parsed Cookie: $urlCookie")
+                        println("Parsed Referrer: $urlReferrer")
+                        println("Parsed Origin: $urlOrigin")
+
+                        // Build final headers - URL params override buffered values
+                        var finalHeaders = bufferedHeaders
+                        if (urlReferrer != null) {
+                            finalHeaders = finalHeaders + mapOf("referrer" to urlReferrer)
+                        }
+                        if (urlOrigin != null) {
+                            finalHeaders = finalHeaders + mapOf("origin" to urlOrigin)
+                        }
+
+                        // Create the PlaylistItem - URL params take priority over buffered values
+                        val item = PlaylistItem(
+                            title = bufferedTitle ?: "Unknown Channel",
+                            attributes = bufferedAttributes,
+                            url = url,
+                            headers = finalHeaders,
+                            userAgent = urlUserAgent ?: bufferedUserAgent,
+                            cookie = urlCookie ?: bufferedCookie,
+                            key = urlKey ?: bufferedKey,
+                            keyid = urlKeyid ?: bufferedKeyId,
+                            licenseUrl = urlLicenseUrl ?: bufferedLicenseUrl
+                        )
+
+                        playlistItems.add(item)
+                        println("Created playlist item: ${item.title}, index: ${playlistItems.size - 1}")
+
+                        // Reset all buffers for next item
+                        bufferedCookie = null
+                        bufferedUserAgent = null
+                        bufferedHeaders = emptyMap()
+                        bufferedKey = null
+                        bufferedKeyId = null
+                        bufferedLicenseUrl = null
+                        bufferedTitle = null
+                        bufferedAttributes = emptyMap()
                     }
                 }
             }
